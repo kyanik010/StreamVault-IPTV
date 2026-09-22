@@ -860,8 +860,7 @@ fun PlayerScreen(
                     viewModel.removeAudioSource()
                     showAudioSource = false
                 },
-                onDismiss = { showAudioSource = false },
-                modifier = Modifier.fillMaxSize()
+                onDismiss = { showAudioSource = false }
             )
         }
 
