@@ -205,6 +205,15 @@ fun PlayerScreen(
         focusRequester.requestFocus()
     }
 
+    LaunchedEffect(showAudioSource, audioSourceUiState.selectedChannelId) {
+        if (showAudioSource && audioSourceUiState.selectedChannelId != null) {
+            while (true) {
+                viewModel.refreshAudioSourceState()
+                kotlinx.coroutines.delay(500L)
+            }
+        }
+    }
+
     LaunchedEffect(playbackPlatformHost, streamUrl, playbackState, isPlaying, videoFormat.width, videoFormat.height, videoFormat.pixelWidthHeightRatio) {
         playbackPlatformHost?.updatePictureInPictureState(
             PlaybackPictureInPictureState(
