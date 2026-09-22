@@ -150,7 +150,6 @@ internal fun PlayerControlsOverlayHost(
             onOpenEpisodes = onOpenEpisodes,
             onOpenSubtitleTracks = onOpenSubtitleTracks,
             onOpenAudioTracks = onOpenAudioTracks,
-            onOpenAudioSource = onOpenAudioSource,
             onOpenSettings = onOpenPlaybackSettings,
             onSeekToPosition = viewModel::seekTo,
             onSetScrubbingMode = viewModel::setScrubbingMode,
