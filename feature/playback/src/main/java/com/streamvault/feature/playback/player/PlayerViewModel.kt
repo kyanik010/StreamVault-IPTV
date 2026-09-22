@@ -986,6 +986,10 @@ class PlayerViewModel @Inject constructor(
         dualSourceAudioCoordinator.resetSync()
     }
 
+    fun refreshAudioSourceState() {
+        dualSourceAudioCoordinator.syncState()
+    }
+
     fun removeAudioSource() {
         dualSourceAudioCoordinator.remove()
     }
