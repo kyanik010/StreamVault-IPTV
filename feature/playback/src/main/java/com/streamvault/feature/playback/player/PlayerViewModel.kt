@@ -968,6 +968,24 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    fun selectAudioProvider(providerId: Long) {
+        viewModelScope.launch {
+            dualSourceAudioCoordinator.selectProvider(providerId, currentProviderId)
+        }
+    }
+
+    fun syncAudioSource() {
+        dualSourceAudioCoordinator.syncNow()
+    }
+
+    fun adjustAudioSourceOffset(deltaMs: Long) {
+        dualSourceAudioCoordinator.adjustOffset(deltaMs)
+    }
+
+    fun resetAudioSourceSync() {
+        dualSourceAudioCoordinator.resetSync()
+    }
+
     fun removeAudioSource() {
         dualSourceAudioCoordinator.remove()
     }
