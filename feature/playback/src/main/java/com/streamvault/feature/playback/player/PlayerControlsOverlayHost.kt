@@ -238,6 +238,7 @@ internal fun PlayerControlsOverlayHost(
             onToggleAspectRatio = viewModel::toggleAspectRatio,
             onOpenSubtitleTracks = onOpenSubtitleTracks,
             onOpenAudioTracks = onOpenAudioTracks,
+            onOpenAudioSource = onOpenAudioSource,
             onOpenVideoTracks = onOpenVideoTracks,
             onOpenPlaybackSpeed = onOpenPlaybackSpeed,
             onOpenStopPlaybackTimer = onOpenStopPlaybackTimer,
