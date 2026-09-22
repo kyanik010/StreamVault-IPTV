@@ -1,6 +1,7 @@
 package com.streamvault.feature.playback.player
 
 import com.streamvault.domain.model.Channel
+import com.streamvault.domain.model.Provider
 import com.streamvault.domain.model.ProviderType
 import com.streamvault.domain.model.Result
 import com.streamvault.domain.model.StreamInfo
@@ -16,12 +17,16 @@ import javax.inject.Inject
 
 data class AudioSourceUiState(
     val available: Boolean = false,
+    val providers: List<Provider> = emptyList(),
     val providerId: Long? = null,
     val providerName: String = "",
     val channels: List<Channel> = emptyList(),
     val selectedChannelId: Long? = null,
     val loading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val driftMs: Long? = null,
+    val manualOffsetMs: Long = 0L,
+    val syncState: String = "IDLE"
 )
 
 class DualSourceAudioCoordinator @Inject constructor(
@@ -34,26 +39,40 @@ class DualSourceAudioCoordinator @Inject constructor(
 
     suspend fun load(currentProviderId: Long): AudioSourceUiState {
         _state.value = _state.value.copy(loading = true, error = null)
-        val provider = providerRepository.getProviders().first()
-            .firstOrNull {
-                it.type == ProviderType.XTREAM_CODES &&
-                    it.id > 0L &&
-                    it.id != currentProviderId
-            }
-        if (provider == null) {
+        val providers = providerRepository.getProviders().first()
+            .filter { it.type == ProviderType.XTREAM_CODES && it.id > 0L && it.id != currentProviderId }
+        if (providers.isEmpty()) {
             val result = AudioSourceUiState(error = "Add a second Xtream account to use Audio Source.")
             _state.value = result
             return result
         }
-        val channels = channelRepository.getChannels(provider.id).first()
+        val selectedId = _state.value.providerId?.takeIf { id -> providers.any { it.id == id } }
+            ?: providers.first().id
+        return loadProvider(selectedId, providers)
+    }
+
+    suspend fun selectProvider(providerId: Long, currentProviderId: Long): AudioSourceUiState {
+        val providers = providerRepository.getProviders().first()
+            .filter { it.type == ProviderType.XTREAM_CODES && it.id > 0L && it.id != currentProviderId }
+        if (providers.none { it.id == providerId }) {
+            val result = _state.value.copy(error = "Selected audio account is unavailable.")
+            _state.value = result
+            return result
+        }
+        return loadProvider(providerId, providers)
+    }
+
+    private suspend fun loadProvider(providerId: Long, providers: List<Provider>): AudioSourceUiState {
+        val provider = providers.first { it.id == providerId }
+        _state.value = _state.value.copy(
+            loading = true, error = null, providers = providers,
+            providerId = providerId, providerName = provider.name
+        )
+        val channels = channelRepository.getChannels(providerId).first()
             .filter { it.streamUrl.isNotBlank() }
-        val result = AudioSourceUiState(
-            available = channels.isNotEmpty(),
-            providerId = provider.id,
-            providerName = provider.name,
-            channels = channels,
-            loading = false,
-            error = if (channels.isEmpty()) "The audio account has no live channels yet." else null
+        val result = _state.value.copy(
+            available = channels.isNotEmpty(), channels = channels, loading = false,
+            error = if (channels.isEmpty()) "The selected audio account has no live channels yet." else null
         )
         _state.value = result
         return result
@@ -66,14 +85,17 @@ class DualSourceAudioCoordinator @Inject constructor(
         videoStream: StreamInfo
     ): Result<Unit> {
         val audioProviderId = _state.value.providerId
-            ?: return Result.error("Audio Xtream account is not configured.")
+            ?: return Result.error("Select an audio Xtream account first.")
         if (audioProviderId == currentProviderId) {
             return Result.error("Audio account must be different from the video account.")
         }
         return when (val result = channelRepository.getStreamInfo(channel)) {
             is Result.Success -> {
                 playbackController.attachAudio(videoEngine, videoStream, result.data)
-                _state.value = _state.value.copy(selectedChannelId = channel.id, error = null)
+                _state.value = _state.value.copy(
+                    selectedChannelId = channel.id, error = null, driftMs = null,
+                    manualOffsetMs = playbackController.manualOffsetMs(), syncState = "STARTING_AUDIO"
+                )
                 Result.success(Unit)
             }
             is Result.Error -> {
@@ -84,15 +106,40 @@ class DualSourceAudioCoordinator @Inject constructor(
         }
     }
 
+    fun syncNow() { playbackController.syncNow(); syncState() }
+
+    fun adjustOffset(deltaMs: Long) {
+        playbackController.adjustManualOffsetMs(deltaMs)
+        syncState()
+    }
+
+    fun resetSync() {
+        playbackController.resetManualOffset()
+        syncState()
+    }
+
+    fun syncState() {
+        val s = playbackController.state.value
+        _state.value = _state.value.copy(
+            driftMs = s.driftMs,
+            manualOffsetMs = playbackController.manualOffsetMs(),
+            syncState = s.syncState.name
+        )
+    }
+
     fun updateVideoStream(streamInfo: StreamInfo) {
         if (_state.value.selectedChannelId != null) {
             playbackController.updateVideoStream(streamInfo)
+            syncState()
         }
     }
 
     fun remove() {
         playbackController.stopAudioOnly()
-        _state.value = _state.value.copy(selectedChannelId = null, error = null)
+        _state.value = _state.value.copy(
+            selectedChannelId = null, error = null, driftMs = null,
+            manualOffsetMs = 0L, syncState = "IDLE"
+        )
     }
 
     fun stop() {
