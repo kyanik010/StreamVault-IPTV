@@ -19,6 +19,16 @@ class DualSourceSyncControllerTest {
     @Test fun largeDriftRequestsHardResync() {
         assertThat(controller.evaluate(clock(10000), clock(11000))).isEqualTo(SyncDecision.HardResync(1000))
     }
+    @Test fun liveOffsetsFallbackWhenWallClockIsUnavailable() {
+        val video = PlaybackClockSnapshot(1000, true, 3000, null, true)
+        val audio = PlaybackClockSnapshot(1000, true, 2500, null, true)
+        assertThat(controller.calculateDriftMs(video, audio)).isEqualTo(500)
+    }
+
+    @Test fun manualPositiveOffsetReducesPositiveDrift() {
+        assertThat(controller.calculateDriftMs(clock(10000), clock(10400), 100)).isEqualTo(300)
+    }
+
     @Test fun missingComparableClockDoesNotGuess() {
         val video = PlaybackClockSnapshot(1000, true, null, null, true)
         val audio = PlaybackClockSnapshot(1200, true, null, null, true)
