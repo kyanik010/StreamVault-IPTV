@@ -138,6 +138,7 @@ fun PlayerControlsOverlay(
     onToggleAspectRatio: () -> Unit,
     onOpenSubtitleTracks: () -> Unit,
     onOpenAudioTracks: () -> Unit,
+    onOpenAudioSource: () -> Unit = {},
     onOpenVideoTracks: () -> Unit,
     onOpenPlaybackSpeed: () -> Unit = {},
     onOpenStopPlaybackTimer: () -> Unit = {},
@@ -233,6 +234,7 @@ fun PlayerControlsOverlay(
                 onToggleAspectRatio = onToggleAspectRatio,
                 onOpenSubtitleTracks = onOpenSubtitleTracks,
                 onOpenAudioTracks = onOpenAudioTracks,
+                onOpenAudioSource = onOpenAudioSource,
                 onOpenVideoTracks = onOpenVideoTracks,
                 onOpenPlaybackSpeed = onOpenPlaybackSpeed,
                 onOpenStopPlaybackTimer = onOpenStopPlaybackTimer,
@@ -576,6 +578,7 @@ private fun PlayerBottomBar(
     onToggleAspectRatio: () -> Unit,
     onOpenSubtitleTracks: () -> Unit,
     onOpenAudioTracks: () -> Unit,
+    onOpenAudioSource: () -> Unit,
     onOpenVideoTracks: () -> Unit,
     onOpenPlaybackSpeed: () -> Unit,
     onOpenStopPlaybackTimer: () -> Unit,
@@ -854,6 +857,9 @@ private fun PlayerLiveInfo(
         }
     }
     val secondaryActions = buildList {
+        if (contentType == "LIVE") {
+            add(PlayerActionSpec("audio_source", "Audio Source", onOpenAudioSource))
+        }
         add(PlayerActionSpec("aspect_ratio", stringResource(R.string.player_aspect_ratio_label, aspectRatioLabel), onToggleAspectRatio))
         if (subtitleTrackCount > 0 || liveTranslationAvailable) {
             add(PlayerActionSpec("subtitles", stringResource(R.string.player_subs), onOpenSubtitleTracks))
