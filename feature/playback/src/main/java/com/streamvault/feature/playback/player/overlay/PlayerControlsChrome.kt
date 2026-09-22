@@ -143,7 +143,7 @@ fun PlayerControlsOverlay(
     onOpenStopPlaybackTimer: () -> Unit = {},
     onOpenIdleStandbyTimer: () -> Unit = {},
     onOpenAudioVideoSync: () -> Unit = {}
-    onOpenExternalAudio: () -> Unit = {},,
+    onOpenExternalAudio: () -> Unit = {},
     audioVideoSyncEnabled: Boolean = false,
     showEpisodesAction: Boolean = false,
     onOpenEpisodes: () -> Unit = {},
