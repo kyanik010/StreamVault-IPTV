@@ -29,46 +29,31 @@ import com.streamvault.core.ui.theme.Primary
 internal fun AudioSourceOverlay(
     state: AudioSourceUiState,
     onSelect: (com.streamvault.domain.model.Channel) -> Unit,
+    onSelectProvider: (Long) -> Unit,
+    onSync: () -> Unit,
+    onOffsetMinus: () -> Unit,
+    onOffsetPlus: () -> Unit,
+    onResetSync: () -> Unit,
     onRemove: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.78f)),
-        contentAlignment = Alignment.Center
-    ) {
+    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.78f)), contentAlignment = Alignment.Center) {
         Surface(
-            modifier = Modifier
-                .fillMaxHeight(0.82f)
-                .widthIn(min = 360.dp, max = 620.dp),
+            modifier = Modifier.fillMaxHeight(0.86f).widthIn(min = 420.dp, max = 720.dp),
             shape = RoundedCornerShape(18.dp),
-            colors = androidx.tv.material3.SurfaceDefaults.colors(
-                containerColor = Color(0xFF0C1624)
-            )
+            colors = androidx.tv.material3.SurfaceDefaults.colors(containerColor = Color(0xFF0C1624))
         ) {
-            Column(
-                modifier = Modifier.fillMaxSize().padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
+            Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Audio Source", style = MaterialTheme.typography.headlineSmall, color = Color.White)
                 Text(
-                    text = if (state.providerName.isBlank()) "Xtream audio account" else state.providerName,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = OnSurfaceDim
+                    if (state.providerName.isBlank()) "Select an Xtream audio account" else state.providerName,
+                    style = MaterialTheme.typography.bodyMedium, color = OnSurfaceDim
                 )
-                if (state.loading) {
-                    Text("Loading live channels…", color = Color.White)
-                } else if (state.error != null && state.channels.isEmpty()) {
-                    Text(state.error, color = Color.White)
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        item {
+                if (state.providers.size > 1) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        state.providers.forEach { provider ->
                             TvClickableSurface(
-                                onClick = onRemove,
+                                onClick = { onSelectProvider(provider.id) },
                                 shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
                                 colors = ClickableSurfaceDefaults.colors(
                                     containerColor = Color.White.copy(alpha = 0.08f),
@@ -76,11 +61,55 @@ internal fun AudioSourceOverlay(
                                 )
                             ) {
                                 Text(
-                                    "None",
-                                    color = Color.White,
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                                    if (provider.id == state.providerId) "✓ " + provider.name else provider.name,
+                                    color = Color.White, modifier = Modifier.padding(12.dp)
                                 )
                             }
+                        }
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Sync: " + state.syncState + "  Drift: " +
+                            (state.driftMs?.let { it.toString() + " ms" } ?: "—") +
+                            "  Offset: " + state.manualOffsetMs + " ms",
+                        color = Color.White, modifier = Modifier.weight(1f)
+                    )
+                    TvClickableSurface(
+                        onClick = onSync,
+                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
+                        colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.08f))
+                    ) { Text("Sync", color = Color.White, modifier = Modifier.padding(12.dp)) }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TvClickableSurface(
+                        onClick = onOffsetMinus,
+                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
+                        colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.08f))
+                    ) { Text("−", color = Color.White, modifier = Modifier.padding(12.dp)) }
+                    TvClickableSurface(
+                        onClick = onResetSync,
+                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
+                        colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.08f))
+                    ) { Text("Reset", color = Color.White, modifier = Modifier.padding(12.dp)) }
+                    TvClickableSurface(
+                        onClick = onOffsetPlus,
+                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
+                        colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.08f))
+                    ) { Text("+", color = Color.White, modifier = Modifier.padding(12.dp)) }
+                }
+                if (state.loading) {
+                    Text("Loading live channels…", color = Color.White)
+                } else if (state.error != null && state.channels.isEmpty()) {
+                    Text(state.error, color = Color.White)
+                } else {
+                    LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        item {
+                            TvClickableSurface(
+                                onClick = onRemove,
+                                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
+                                colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.08f))
+                            ) { Text("None", color = Color.White, modifier = Modifier.padding(12.dp)) }
                         }
                         items(state.channels, key = { it.id }) { channel ->
                             TvClickableSurface(
@@ -91,13 +120,8 @@ internal fun AudioSourceOverlay(
                                     focusedContainerColor = Primary.copy(alpha = 0.35f)
                                 )
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    if (state.selectedChannelId == channel.id) {
-                                        Text("✓", color = Primary)
-                                    }
+                                Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    if (state.selectedChannelId == channel.id) Text("✓", color = Primary)
                                     Text(channel.name, color = Color.White)
                                 }
                             }
@@ -107,17 +131,8 @@ internal fun AudioSourceOverlay(
                 TvClickableSurface(
                     onClick = onDismiss,
                     shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
-                    colors = ClickableSurfaceDefaults.colors(
-                        containerColor = Color.White.copy(alpha = 0.08f),
-                        focusedContainerColor = Primary.copy(alpha = 0.35f)
-                    )
-                ) {
-                    Text(
-                        "Close",
-                        color = Color.White,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-                    )
-                }
+                    colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.08f))
+                ) { Text("Close", color = Color.White, modifier = Modifier.padding(12.dp)) }
             }
         }
     }
