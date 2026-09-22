@@ -39,6 +39,35 @@ class DualSourcePlaybackController @Inject constructor(
             it.setAudioOnlyMode(false)
             it.prepare(videoStream, autoPlay = true)
         }
+        if (audioStream != null) startMonitor()
+    }
+
+    /** Attach an independent audio engine to an already-running application video engine. */
+    fun attachAudio(videoEngine: PlayerEngine, videoStream: StreamInfo, audioStream: StreamInfo) {
+        stopAudioOnly()
+        this.video = videoEngine
+        this.videoStream = videoStream
+        this.audioStream = audioStream
+        audio = factory.create().also {
+            it.setAudioOnlyMode(true)
+            it.setMediaSessionEnabled(false)
+            it.setAudioFocusBypassed(true)
+            it.setPlaybackSpeed(1f)
+            it.prepare(audioStream, autoPlay = false)
+        }
+        startMonitor()
+    }
+
+    private fun stopAudioOnly() {
+        monitorJob?.cancel()
+        monitorJob = null
+        audio?.setPlaybackSpeed(1f)
+        audio?.release()
+        audio = null
+        audioStream = null
+        audioStarted = false
+        lastHardResyncAtMs = 0L
+    }
 
         if (audioStream != null) {
             audio = factory.create().also {
