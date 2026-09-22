@@ -1310,12 +1310,7 @@ class PlayerViewModel @Inject constructor(
         if (!isActivePlaybackSession(requestVersion)) return false
         currentResolvedPlaybackUrl = success.streamInfo.url
         currentResolvedStreamInfo = success.streamInfo
-        dualSourceAudioCoordinator.state.value.providerId?.let { dualProviderId ->
-            // Keep the audio engine attached while the application video engine changes channels.
-            if (dualProviderId != currentProviderId) {
-                com.streamvault.player.DualSourcePlaybackController::class // compile-time anchor; lifecycle is owned by coordinator
-            }
-        }
+        dualSourceAudioCoordinator.updateVideoStream(success.streamInfo)
         readySideEffectsRequestVersion = requestVersion
         refreshLiveTranslationAvailability()
         startTokenRenewalMonitoring(success.streamInfo.expirationTime)
