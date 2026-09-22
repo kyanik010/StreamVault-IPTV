@@ -69,17 +69,6 @@ class DualSourcePlaybackController @Inject constructor(
         lastHardResyncAtMs = 0L
     }
 
-        if (audioStream != null) {
-            audio = factory.create().also {
-                it.setAudioOnlyMode(true)
-                it.setMediaSessionEnabled(false)
-                it.setAudioFocusBypassed(true)
-                it.setPlaybackSpeed(1f)
-                it.prepare(audioStream, autoPlay = false)
-            }
-            startMonitor()
-        }
-    }
 
     fun startAudio() {
         val engine = audio ?: return
