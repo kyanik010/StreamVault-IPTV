@@ -178,10 +178,12 @@ fun PlayerScreen(
     val preventStandbyDuringPlayback by viewModel.preventStandbyDuringPlayback.collectAsStateWithLifecycle()
     val sleepTimerExitEvent by viewModel.sleepTimerExitEvent.collectAsStateWithLifecycle()
     val playerPreferences by viewModel.playerPreferencesUiState.collectAsStateWithLifecycle()
+    val audioSourceUiState by viewModel.audioSourceUiState.collectAsStateWithLifecycle()
 
     var modalState by remember { mutableStateOf(PlayerModalState()) }
     var channelInfoSubPanelOpen by remember { mutableStateOf(false) }
     var showClosePlaybackConfirmation by rememberSaveable { mutableStateOf(false) }
+    var showAudioSource by rememberSaveable { mutableStateOf(false) }
     var closePlaybackConfirmationOpenedAtMs by remember { mutableStateOf(0L) }
     
     val focusRequester = remember { FocusRequester() }
@@ -824,6 +826,10 @@ fun PlayerScreen(
             onOpenArchive = { modalState = modalState.open(PlayerModal.ProgramHistory) },
             onOpenSubtitleTracks = { modalState = modalState.open(PlayerModal.TrackSelection(TrackType.TEXT)) },
             onOpenAudioTracks = { modalState = modalState.open(PlayerModal.TrackSelection(TrackType.AUDIO)) },
+            onOpenAudioSource = {
+                showAudioSource = true
+                viewModel.openAudioSource()
+            },
             onOpenVideoTracks = { modalState = modalState.open(PlayerModal.TrackSelection(TrackType.VIDEO)) },
             onOpenPlaybackSpeed = { modalState = modalState.open(PlayerModal.SpeedSelection) },
             onOpenStopPlaybackTimer = { modalState = modalState.open(PlayerModal.StopPlaybackTimer) },
@@ -842,6 +848,22 @@ fun PlayerScreen(
             showBackButton = backButtonPlacement == PlayerBackButtonPlacement.CONTROLS_TOP_BAR,
             onBackToMenu = onBack
         )
+
+        if (showAudioSource && contentType == "LIVE") {
+            AudioSourceOverlay(
+                state = audioSourceUiState,
+                onSelect = { channel ->
+                    viewModel.selectAudioSource(channel)
+                    showAudioSource = false
+                },
+                onRemove = {
+                    viewModel.removeAudioSource()
+                    showAudioSource = false
+                },
+                onDismiss = { showAudioSource = false },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
 
         PlayerNumericInputOverlayHost(
             viewModel = viewModel,
