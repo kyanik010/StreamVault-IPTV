@@ -93,6 +93,11 @@ class DualSourcePlaybackController @Inject constructor(
         synchronize(forceHard = true)
     }
 
+    /** Updates the video stream identity while keeping the independent audio engine alive. */
+    fun updateVideoStream(videoStream: StreamInfo) {
+        this.videoStream = videoStream
+    }
+
     private fun startMonitor() {
         monitorJob?.cancel()
         monitorJob = scope.launch {
