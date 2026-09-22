@@ -244,6 +244,7 @@ internal fun PlayerControlsOverlayHost(
             onOpenStopPlaybackTimer = onOpenStopPlaybackTimer,
             onOpenIdleStandbyTimer = onOpenIdleStandbyTimer,
             onOpenAudioVideoSync = onOpenAudioVideoSync,
+            onOpenExternalAudio = onOpenExternalAudio,
             audioVideoSyncEnabled = audioVideoSyncEnabled,
             showEpisodesAction = canOpenEpisodePicker,
             onOpenEpisodes = onOpenEpisodes,
