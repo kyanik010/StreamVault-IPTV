@@ -142,7 +142,7 @@ fun PlayerControlsOverlay(
     onOpenPlaybackSpeed: () -> Unit = {},
     onOpenStopPlaybackTimer: () -> Unit = {},
     onOpenIdleStandbyTimer: () -> Unit = {},
-    onOpenAudioVideoSync: () -> Unit = {}
+    onOpenAudioVideoSync: () -> Unit = {},
     onOpenExternalAudio: () -> Unit = {},
     audioVideoSyncEnabled: Boolean = false,
     showEpisodesAction: Boolean = false,
@@ -805,6 +805,7 @@ private fun PlayerLiveInfo(
         currentProgram != null &&
         currentChannel.isArchivePlayable(currentProgram)
     val primaryActions = buildList {
+        add(PlayerActionSpec("audio_source", "Audio Source", onOpenExternalAudio))
         if (showTimeshiftControls) {
             add(PlayerActionSpec("jump_to_live", stringResource(R.string.player_jump_to_live), onSeekToLiveEdge))
         }
