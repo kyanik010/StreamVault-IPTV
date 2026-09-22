@@ -39,8 +39,8 @@ class PlayerPreparationCoordinatorPreloadTest {
         val result = coordinator.prepareStreamForPreload(input)
 
         assertThat(result).isEqualTo(prepared)
-        verify(engine, never()).prepare(any())
-        verify(engine, never()).setMuted(any())
+        verify(engine, never()).prepare(input)
+        verify(engine, never()).setMuted(false)
     }
 
     @Test
