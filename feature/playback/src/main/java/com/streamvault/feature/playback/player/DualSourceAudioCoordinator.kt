@@ -84,6 +84,12 @@ class DualSourceAudioCoordinator @Inject constructor(
         }
     }
 
+    fun updateVideoStream(streamInfo: StreamInfo) {
+        if (_state.value.selectedChannelId != null) {
+            playbackController.updateVideoStream(streamInfo)
+        }
+    }
+
     fun remove() {
         playbackController.stopAudioOnly()
         _state.value = _state.value.copy(selectedChannelId = null, error = null)
