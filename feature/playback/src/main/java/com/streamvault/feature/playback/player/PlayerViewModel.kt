@@ -968,6 +968,29 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    fun addAudioSourceAccount(
+        serverUrl: String,
+        username: String,
+        password: String,
+        name: String,
+        onCompleted: (Boolean) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            val result = dualSourceAudioCoordinator.addXtreamAudioAccount(
+                serverUrl = serverUrl,
+                username = username,
+                password = password,
+                name = name
+            )
+            val success = result is com.streamvault.domain.usecase.ValidateAndAddProviderResult.Success ||
+                result is com.streamvault.domain.usecase.ValidateAndAddProviderResult.SavedWithWarning
+            if (success) {
+                dualSourceAudioCoordinator.load(currentProviderId)
+            }
+            onCompleted(success)
+        }
+    }
+
     fun selectAudioProvider(providerId: Long) {
         viewModelScope.launch {
             dualSourceAudioCoordinator.selectProvider(providerId, currentProviderId)
