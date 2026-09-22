@@ -180,6 +180,7 @@ class Media3PlayerEngine @Inject constructor(
         private set
     private var isDisposed = false
     private var exoPlayer: ExoPlayer? = null
+    private var audioOnlyMode = false
     private var mediaSession: MediaSession? = null
     private var requestedAudioDecoderMode: DecoderMode = DecoderMode.AUTO
     private var requestedVideoDecoderMode: DecoderMode = DecoderMode.AUTO
@@ -446,13 +447,13 @@ class Media3PlayerEngine @Inject constructor(
         }
     }
 
-    override fun prepare(streamInfo: StreamInfo) {
+    override fun prepare(streamInfo: StreamInfo, autoPlay: Boolean) {
         if (ensureNotDisposed("prepare")) return
         if (!vodTrackPreferencesConfiguredForNextPrepare) {
             trackController.setVodTrackPreferences(exoPlayer, null)
         }
         vodTrackPreferencesConfiguredForNextPrepare = false
-        prepareInternal(streamInfo = streamInfo, preserveRetryState = false, seekPositionMs = null, autoPlay = true)
+        prepareInternal(streamInfo = streamInfo, preserveRetryState = false, seekPositionMs = null, autoPlay = autoPlay)
     }
 
     override fun renewStreamUrl(streamInfo: StreamInfo) {
@@ -658,6 +659,38 @@ class Media3PlayerEngine @Inject constructor(
         val wasPlaying = player.playWhenReady
         val position = player.currentPosition.takeIf { it > 0L }
         prepareInternal(streamInfo, preserveRetryState = true, seekPositionMs = position, autoPlay = wasPlaying)
+    }
+    
+    override fun setAudioOnlyMode(enabled: Boolean) {
+        if (isDisposed) return
+        audioOnlyMode = enabled
+    }
+
+    override fun clockSnapshot(): PlaybackClockSnapshot {
+        val player = exoPlayer ?: return PlaybackClockSnapshot.unavailable()
+        val position = player.currentPosition
+        val isLive = runCatching { player.isCurrentMediaItemLive }.getOrDefault(false)
+        val liveOffset = runCatching { player.currentLiveOffset }
+            .getOrNull()
+            ?.takeUnless { it == C.TIME_UNSET }
+        val wallClock = if (isLive && liveOffset != null) {
+            runCatching {
+                val timeline = player.currentTimeline
+                if (timeline.isEmpty) null
+                else {
+                    val window = Timeline.Window()
+                    timeline.getWindow(player.currentMediaItemIndex, window)
+                    window.currentUnixTimeMs - liveOffset
+                }
+            }.getOrNull()
+        } else null
+        return PlaybackClockSnapshot(
+            positionMs = position,
+            isLive = isLive,
+            liveOffsetMs = liveOffset,
+            playbackWallClockMs = wallClock,
+            available = player.currentMediaItem != null
+        )
     }
 
     override fun setAudioVideoOffsetMs(offsetMs: Int) {
@@ -1185,6 +1218,12 @@ class Media3PlayerEngine @Inject constructor(
             }
             preloadCoordinator.onPlaybackStarted(mediaId)
             player.setMediaSource(mediaSource)
+            if (audioOnlyMode) {
+                player.trackSelectionParameters = player.trackSelectionParameters
+                    .buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, true)
+                    .build()
+            }
             player.prepare()
             seekPositionMs?.takeIf { it > 0L }?.let(player::seekTo)
 
