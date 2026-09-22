@@ -7,6 +7,9 @@ import com.streamvault.domain.model.Result
 import com.streamvault.domain.model.StreamInfo
 import com.streamvault.domain.repository.ChannelRepository
 import com.streamvault.domain.repository.ProviderRepository
+import com.streamvault.domain.usecase.ValidateAndAddProvider
+import com.streamvault.domain.usecase.XtreamProviderSetupCommand
+import com.streamvault.domain.usecase.ValidateAndAddProviderResult
 import com.streamvault.player.DualSourcePlaybackController
 import com.streamvault.player.PlayerEngine
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,13 +29,15 @@ data class AudioSourceUiState(
     val error: String? = null,
     val driftMs: Long? = null,
     val manualOffsetMs: Long = 0L,
-    val syncState: String = "IDLE"
+    val syncState: String = "IDLE",
+    val addingAccount: Boolean = false
 )
 
 class DualSourceAudioCoordinator @Inject constructor(
     private val providerRepository: ProviderRepository,
     private val channelRepository: ChannelRepository,
-    private val playbackController: DualSourcePlaybackController
+    private val playbackController: DualSourcePlaybackController,
+    private val validateAndAddProvider: ValidateAndAddProvider
 ) {
     private val _state = MutableStateFlow(AudioSourceUiState())
     val state: StateFlow<AudioSourceUiState> = _state.asStateFlow()
@@ -49,6 +54,37 @@ class DualSourceAudioCoordinator @Inject constructor(
         val selectedId = _state.value.providerId?.takeIf { id -> providers.any { it.id == id } }
             ?: providers.first().id
         return loadProvider(selectedId, providers)
+    }
+
+    suspend fun addXtreamAudioAccount(
+        serverUrl: String,
+        username: String,
+        password: String,
+        name: String
+    ): ValidateAndAddProviderResult {
+        _state.value = _state.value.copy(addingAccount = true, error = null)
+        val command = XtreamProviderSetupCommand(
+            serverUrl = serverUrl.trim(),
+            username = username.trim(),
+            password = password,
+            name = name.trim().ifBlank { "Audio Source" }
+        )
+        val result = validateAndAddProvider.loginXtream(command)
+        _state.value = _state.value.copy(
+            addingAccount = false,
+            error = when (result) {
+                is ValidateAndAddProviderResult.Success -> null
+                is ValidateAndAddProviderResult.SavedWithWarning -> result.warning
+                is ValidateAndAddProviderResult.ValidationError -> result.message
+                is ValidateAndAddProviderResult.Error -> result.message
+                is ValidateAndAddProviderResult.TransportConsentRequired -> "Audio Xtream account requires transport confirmation."
+                is ValidateAndAddProviderResult.VerificationInconclusive -> result.message
+            }
+        )
+        if (result is ValidateAndAddProviderResult.Success || result is ValidateAndAddProviderResult.SavedWithWarning) {
+            _state.value = _state.value.copy(error = null)
+        }
+        return result
     }
 
     suspend fun selectProvider(providerId: Long, currentProviderId: Long): AudioSourceUiState {
