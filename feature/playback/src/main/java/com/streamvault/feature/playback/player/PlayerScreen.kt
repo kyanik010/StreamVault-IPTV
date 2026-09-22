@@ -178,6 +178,8 @@ fun PlayerScreen(
     val preventStandbyDuringPlayback by viewModel.preventStandbyDuringPlayback.collectAsStateWithLifecycle()
     val sleepTimerExitEvent by viewModel.sleepTimerExitEvent.collectAsStateWithLifecycle()
     val playerPreferences by viewModel.playerPreferencesUiState.collectAsStateWithLifecycle()
+    val showExternalAudioDialog by viewModel.showExternalAudioDialog.collectAsStateWithLifecycle()
+    val externalAudioActive by viewModel.externalAudioActive.collectAsStateWithLifecycle()
 
     var modalState by remember { mutableStateOf(PlayerModalState()) }
     var channelInfoSubPanelOpen by remember { mutableStateOf(false) }
@@ -829,6 +831,7 @@ fun PlayerScreen(
             onOpenStopPlaybackTimer = { modalState = modalState.open(PlayerModal.StopPlaybackTimer) },
             onOpenIdleStandbyTimer = { modalState = modalState.open(PlayerModal.IdleStandbyTimer) },
             onOpenAudioVideoSync = { modalState = modalState.open(PlayerModal.AudioVideoOffset) },
+            onOpenExternalAudio = viewModel::openExternalAudioDialog,
             onOpenEpisodes = { modalState = modalState.open(PlayerModal.EpisodePicker) },
             onOpenChapters = { modalState = modalState.open(PlayerModal.ChapterSelection) },
             onOpenPlaybackSettings = { modalState = modalState.open(PlayerModal.PlaybackSettings) },
@@ -842,6 +845,16 @@ fun PlayerScreen(
             showBackButton = backButtonPlacement == PlayerBackButtonPlacement.CONTROLS_TOP_BAR,
             onBackToMenu = onBack
         )
+
+        if (showExternalAudioDialog) {
+            ExternalAudioDialog(
+                active = externalAudioActive,
+                onStart = viewModel::startExternalAudio,
+                onStop = viewModel::stopExternalAudio,
+                onOffsetChanged = viewModel::setExternalAudioOffset,
+                onDismiss = viewModel::closeExternalAudioDialog
+            )
+        }
 
         PlayerNumericInputOverlayHost(
             viewModel = viewModel,

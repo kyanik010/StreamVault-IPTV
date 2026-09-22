@@ -30,6 +30,7 @@ import com.streamvault.player.AUDIO_VIDEO_OFFSET_MAX_MS
 import com.streamvault.player.AUDIO_VIDEO_OFFSET_MIN_MS
 import com.streamvault.player.PlaybackState
 import com.streamvault.player.PlayerEngine
+import com.streamvault.player.ExternalAudioController
 import com.streamvault.player.PlayerError
 import com.streamvault.player.PlayerPreloadContentType
 import com.streamvault.player.PlayerPreloadItem
@@ -92,6 +93,13 @@ class PlayerViewModel @Inject constructor(
     val activePlayerEngine: StateFlow<PlayerEngine> = activePlayerEngineFlow
     val playerEngine: PlayerEngine
         get() = activePlayerEngineFlow.value
+
+    private val externalAudioController = ExternalAudioController(appContext)
+    private val _showExternalAudioDialog = MutableStateFlow(false)
+    val showExternalAudioDialog: StateFlow<Boolean> = _showExternalAudioDialog.asStateFlow()
+    private val _externalAudioActive = MutableStateFlow(false)
+    val externalAudioActive: StateFlow<Boolean> = _externalAudioActive.asStateFlow()
+    private var primaryAudioWasMutedBeforeExternal = false
 
     internal val showControlsFlow = MutableStateFlow(false)
     val showControls: StateFlow<Boolean> = showControlsFlow.asStateFlow()
@@ -1688,7 +1696,41 @@ class PlayerViewModel @Inject constructor(
         contentType = contentType
     )?.url
 
+    fun openExternalAudioDialog() {
+        _showExternalAudioDialog.value = true
+    }
+
+    fun closeExternalAudioDialog() {
+        _showExternalAudioDialog.value = false
+    }
+
+    fun startExternalAudio(url: String) {
+        primaryAudioWasMutedBeforeExternal = playerEngine.isMuted.value
+        playerEngine.setMuted(true)
+        externalAudioController.start(
+            url = url,
+            primaryPositionMs = { playerEngine.currentPosition.value },
+            primaryIsPlaying = { playerEngine.isPlaying.value },
+            scope = viewModelScope
+        )
+        _externalAudioActive.value = true
+        _showExternalAudioDialog.value = false
+    }
+
+    fun stopExternalAudio() {
+        externalAudioController.stop()
+        if (!primaryAudioWasMutedBeforeExternal) {
+            playerEngine.setMuted(false)
+        }
+        _externalAudioActive.value = false
+    }
+
+    fun setExternalAudioOffset(offsetMs: Long) {
+        externalAudioController.setOffsetMs(offsetMs)
+    }
+
     override fun onCleared() {
+        externalAudioController.release()
         playbackSessionCoordinator.invalidate()
         super.onCleared()
         cleanupAfterCleared(playerEngineCoordinator.mainEngine)

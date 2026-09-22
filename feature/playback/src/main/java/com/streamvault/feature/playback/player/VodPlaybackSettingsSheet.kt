@@ -61,6 +61,7 @@ internal fun VodPlaybackSettingsSheet(
     onOpenStopPlaybackTimer: () -> Unit,
     onOpenIdleStandbyTimer: () -> Unit,
     onOpenAudioVideoSync: () -> Unit,
+    onOpenExternalAudio: () -> Unit = {},
     onToggleAspectRatio: () -> Unit,
     onToggleMute: () -> Unit,
     onEnterPictureInPicture: () -> Unit,
@@ -84,6 +85,7 @@ internal fun VodPlaybackSettingsSheet(
         add(VodSettingsAction("stop_timer", stringResource(R.string.player_stop_playback_after), onClick = onOpenStopPlaybackTimer))
         add(VodSettingsAction("idle_timer", stringResource(R.string.player_idle_standby_after), onClick = onOpenIdleStandbyTimer))
         add(VodSettingsAction("aspect", stringResource(R.string.player_aspect_ratio), onClick = onToggleAspectRatio))
+        add(VodSettingsAction("external_audio", "External Audio", onClick = onOpenExternalAudio))
         add(VodSettingsAction("mute", stringResource(if (isMuted) R.string.player_unmute else R.string.player_mute), onClick = onToggleMute))
         add(VodSettingsAction("pip", stringResource(R.string.player_picture_in_picture), onClick = onEnterPictureInPicture))
         if (state.showEpisodesAction) add(VodSettingsAction("episodes", stringResource(R.string.player_episodes), onClick = onOpenEpisodes))
@@ -211,6 +213,7 @@ internal fun VodPlaybackSettingsSheet(
 private fun vodSettingsIcon(id: String, isMuted: Boolean): ImageVector = when (id) {
     "subtitles" -> Icons.Default.ClosedCaption
     "audio" -> Icons.Default.Audiotrack
+    "external_audio" -> Icons.Default.Audiotrack
     "quality" -> Icons.Default.HighQuality
     "speed" -> Icons.Default.Speed
     "stop_timer" -> Icons.Default.Timer
