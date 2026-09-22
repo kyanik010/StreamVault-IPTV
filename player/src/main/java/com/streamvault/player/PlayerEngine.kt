@@ -85,6 +85,8 @@ interface PlayerEngine {
     fun setMuted(muted: Boolean)
     fun setPlaybackSpeed(speed: Float)
     fun setAudioVideoSyncEnabled(enabled: Boolean)
+    fun setAudioOnlyMode(enabled: Boolean) {}
+    fun clockSnapshot(): PlaybackClockSnapshot = PlaybackClockSnapshot.unavailable()
     fun setAudioVideoOffsetMs(offsetMs: Int)
     fun setAudioOutputPreference(preference: AudioOutputPreference)
     fun setCompatibilityMemoryEnabled(enabled: Boolean)
@@ -147,6 +149,18 @@ interface PlayerEngine {
     fun clearRenderBinding()
     fun releaseRenderView(renderView: View)
     fun resetLiveHandoffGrace() {}
+}
+
+data class PlaybackClockSnapshot(
+    val positionMs: Long,
+    val isLive: Boolean,
+    val liveOffsetMs: Long?,
+    val playbackWallClockMs: Long?,
+    val available: Boolean
+) {
+    companion object {
+        fun unavailable() = PlaybackClockSnapshot(0L, false, null, null, false)
+    }
 }
 
 data class PlayerRetryStatus(
