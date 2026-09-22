@@ -804,6 +804,7 @@ private fun PlayerLiveInfo(
         currentProgram != null &&
         currentChannel.isArchivePlayable(currentProgram)
     val primaryActions = buildList {
+        add(PlayerActionSpec("audio_source", "Audio Source", onOpenAudioSource))
         if (showTimeshiftControls) {
             add(PlayerActionSpec("jump_to_live", stringResource(R.string.player_jump_to_live), onSeekToLiveEdge))
         }
@@ -859,7 +860,6 @@ private fun PlayerLiveInfo(
         }
     }
     val secondaryActions = buildList {
-        add(PlayerActionSpec("audio_source", "Audio Source", onOpenAudioSource))
         add(PlayerActionSpec("aspect_ratio", stringResource(R.string.player_aspect_ratio_label, aspectRatioLabel), onToggleAspectRatio))
         if (subtitleTrackCount > 0 || liveTranslationAvailable) {
             add(PlayerActionSpec("subtitles", stringResource(R.string.player_subs), onOpenSubtitleTracks))
