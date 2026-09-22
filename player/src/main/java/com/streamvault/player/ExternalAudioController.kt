@@ -1,10 +1,12 @@
 package com.streamvault.player
 
 import android.content.Context
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
-import androidx.media3.common.PlaybackException
-import androidx.media3.common.Player
+import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -15,11 +17,23 @@ import kotlinx.coroutines.launch
  * Optional second Media3 player used only for external audio.
  *
  * The primary player is never replaced or reconfigured. The secondary player
- * receives the external stream and its video renderers are disabled by volumeing
- * it as audio-only; this keeps the existing playback path intact.
+ * receives the external stream with video tracks disabled; this keeps the existing
+ * primary playback path intact while avoiding a second rendered video.
  */
 class ExternalAudioController(context: Context) {
-    private val player = ExoPlayer.Builder(context.applicationContext).build().apply {
+    private val httpDataSourceFactory = DefaultHttpDataSource.Factory()
+    private val dataSourceFactory = DefaultDataSource.Factory(
+        context.applicationContext,
+        httpDataSourceFactory
+    )
+    private val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
+    private val player = ExoPlayer.Builder(context.applicationContext)
+        .setMediaSourceFactory(mediaSourceFactory)
+        .build().apply {
+        trackSelectionParameters = trackSelectionParameters
+            .buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, true)
+            .build()
         volume = 1f
         playWhenReady = true
     }
@@ -35,12 +49,10 @@ class ExternalAudioController(context: Context) {
         headers: Map<String, String> = emptyMap()
     ) {
         stop()
-        val builder = MediaItem.Builder().setUri(url)
         if (headers.isNotEmpty()) {
-            // Headers are applied by the app's normal networking layer when available.
-            // Direct external sources intentionally remain URL-only here.
+            httpDataSourceFactory.setDefaultRequestProperties(headers)
         }
-        player.setMediaItem(builder.build())
+        player.setMediaItem(MediaItem.fromUri(url))
         player.prepare()
         player.playWhenReady = primaryIsPlaying()
         syncJob = scope.launch {
