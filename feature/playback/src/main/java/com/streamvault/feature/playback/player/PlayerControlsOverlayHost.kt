@@ -184,7 +184,6 @@ internal fun PlayerControlsOverlayHost(
                 onOpenIdleStandbyTimer = onOpenIdleStandbyTimer,
                 onOpenAudioVideoSync = onOpenAudioVideoSync,
                 onOpenExternalAudio = onOpenExternalAudio,
-            onOpenExternalAudio = onOpenExternalAudio,
                 onToggleAspectRatio = viewModel::toggleAspectRatio,
                 onToggleMute = viewModel::toggleMute,
                 onEnterPictureInPicture = onEnterPictureInPicture,
