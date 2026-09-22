@@ -13,6 +13,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -21,6 +25,7 @@ import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import androidx.compose.material3.OutlinedTextField
 import com.streamvault.core.ui.interaction.TvClickableSurface
 import com.streamvault.core.ui.theme.OnSurfaceDim
 import com.streamvault.core.ui.theme.Primary
@@ -30,6 +35,7 @@ internal fun AudioSourceOverlay(
     state: AudioSourceUiState,
     onSelect: (com.streamvault.domain.model.Channel) -> Unit,
     onSelectProvider: (Long) -> Unit,
+    onAddAudioAccount: (String, String, String, String) -> Unit,
     onSync: () -> Unit,
     onOffsetMinus: () -> Unit,
     onOffsetPlus: () -> Unit,
@@ -37,6 +43,12 @@ internal fun AudioSourceOverlay(
     onRemove: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    var showAddAccount by remember { mutableStateOf(state.providers.isEmpty()) }
+    var serverUrl by remember { mutableStateOf("") }
+    var username by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var accountName by remember { mutableStateOf("Audio Source") }
+
     Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.78f)), contentAlignment = Alignment.Center) {
         Surface(
             modifier = Modifier.fillMaxHeight(0.86f).widthIn(min = 420.dp, max = 720.dp),
@@ -49,6 +61,38 @@ internal fun AudioSourceOverlay(
                     if (state.providerName.isBlank()) "Select an Xtream audio account" else state.providerName,
                     style = MaterialTheme.typography.bodyMedium, color = OnSurfaceDim
                 )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TvClickableSurface(
+                        onClick = { showAddAccount = !showAddAccount },
+                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
+                        colors = ClickableSurfaceDefaults.colors(
+                            containerColor = Primary.copy(alpha = 0.20f),
+                            focusedContainerColor = Primary.copy(alpha = 0.35f)
+                        )
+                    ) {
+                        Text(if (showAddAccount) "Cancel Add Account" else "Add Audio Account", color = Color.White, modifier = Modifier.padding(12.dp))
+                    }
+                }
+                if (showAddAccount) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(value = accountName, onValueChange = { accountName = it }, label = { Text("Account Name") }, singleLine = true)
+                        OutlinedTextField(value = serverUrl, onValueChange = { serverUrl = it }, label = { Text("Server URL (HTTP/HTTPS)") }, singleLine = true)
+                        OutlinedTextField(value = username, onValueChange = { username = it }, label = { Text("Username") }, singleLine = true)
+                        OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("Password") }, singleLine = true)
+                        TvClickableSurface(
+                            onClick = {
+                                if (!state.addingAccount && serverUrl.isNotBlank() && username.isNotBlank() && password.isNotBlank()) {
+                                    onAddAudioAccount(serverUrl, username, password, accountName)
+                                }
+                            },
+                            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
+                            colors = ClickableSurfaceDefaults.colors(containerColor = Primary.copy(alpha = 0.35f))
+                        ) {
+                            Text(if (state.addingAccount) "Adding…" else "Add & Login", color = Color.White, modifier = Modifier.padding(12.dp))
+                        }
+                        Text("This account is used only as the audio source. Your current video account remains unchanged.", color = OnSurfaceDim)
+                    }
+                }
                 if (state.providers.size > 1) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         state.providers.forEach { provider ->
