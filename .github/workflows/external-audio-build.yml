@@ -29,6 +29,23 @@ jobs:
       - name: Build debug APK
         run: ./gradlew assembleDebug --stacktrace
 
+      - name: Verify dual-source UI is inside the APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=$(find app/build/outputs/apk/debug -maxdepth 1 -name '*.apk' | head -n 1)
+          test -n "$APK"
+          mkdir -p /tmp/apkcheck
+          unzip -p "$APK" classes.dex > /tmp/apkcheck/classes.dex
+          strings /tmp/apkcheck/classes.dex > /tmp/apkcheck/classes.strings
+          for needle in "Audio Source" "Add Audio Account" "Server URL" "Audio Channel" "Remove Audio" "Sync"; do
+            grep -F "$needle" /tmp/apkcheck/classes.strings >/dev/null || {
+              echo "APK verification failed: missing '$needle' in classes.dex"
+              exit 1
+            }
+          done
+          echo "APK verification passed: required Dual Source UI strings are present."
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
