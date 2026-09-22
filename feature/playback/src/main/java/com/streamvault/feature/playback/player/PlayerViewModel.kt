@@ -76,6 +76,7 @@ class PlayerViewModel @Inject constructor(
     internal val playerPlaybackContextCoordinator: PlayerPlaybackContextCoordinator,
     internal val playerRecoveryCoordinator: PlayerRecoveryCoordinator,
     internal val playerRecoveryExecutionCoordinator: PlayerRecoveryExecutionCoordinator,
+    internal val dualSourceAudioCoordinator: DualSourceAudioCoordinator,
 ) : ViewModel() {
     companion object {
         private const val MIN_WATCHED_FOR_AUTO_PLAY_MS = 5_000L
@@ -947,6 +948,29 @@ class PlayerViewModel @Inject constructor(
     val mediaTitle: StateFlow<String?> = activeEngineState<String?>(null) { it.mediaTitle }
     val playbackSpeed: StateFlow<Float> = activeEngineState(1f) { it.playbackSpeed }
     val audioVideoSyncEnabled: StateFlow<Boolean> = activeEngineState(false) { it.audioVideoSyncEnabled }
+    val audioSourceUiState: StateFlow<AudioSourceUiState> = dualSourceAudioCoordinator.state
+
+    fun openAudioSource() {
+        viewModelScope.launch {
+            dualSourceAudioCoordinator.load(currentProviderId)
+        }
+    }
+
+    fun selectAudioSource(channel: com.streamvault.domain.model.Channel) {
+        val videoStream = currentResolvedStreamInfo ?: return
+        viewModelScope.launch {
+            dualSourceAudioCoordinator.select(
+                channel = channel,
+                currentProviderId = currentProviderId,
+                videoEngine = playerEngine,
+                videoStream = videoStream
+            )
+        }
+    }
+
+    fun removeAudioSource() {
+        dualSourceAudioCoordinator.remove()
+    }
 
     val preventStandbyDuringPlayback: StateFlow<Boolean> by lazy(LazyThreadSafetyMode.NONE) {
         playerPreferencesCoordinator.preventStandbyDuringPlayback
@@ -1286,6 +1310,12 @@ class PlayerViewModel @Inject constructor(
         if (!isActivePlaybackSession(requestVersion)) return false
         currentResolvedPlaybackUrl = success.streamInfo.url
         currentResolvedStreamInfo = success.streamInfo
+        dualSourceAudioCoordinator.state.value.providerId?.let { dualProviderId ->
+            // Keep the audio engine attached while the application video engine changes channels.
+            if (dualProviderId != currentProviderId) {
+                com.streamvault.player.DualSourcePlaybackController::class // compile-time anchor; lifecycle is owned by coordinator
+            }
+        }
         readySideEffectsRequestVersion = requestVersion
         refreshLiveTranslationAvailability()
         startTokenRenewalMonitoring(success.streamInfo.expirationTime)
