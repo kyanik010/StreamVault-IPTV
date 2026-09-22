@@ -63,7 +63,7 @@ interface PlayerEngine {
     /** In-stream metadata title (ICY / HLS). Null when the stream sends nothing. */
     val mediaTitle: StateFlow<String?>
 
-    fun prepare(streamInfo: StreamInfo)
+    fun prepare(streamInfo: StreamInfo, autoPlay: Boolean = true)
     fun renewStreamUrl(streamInfo: StreamInfo)
     fun play()
     fun pause()
