@@ -58,7 +58,7 @@ class DualSourcePlaybackController @Inject constructor(
         startMonitor()
     }
 
-    private fun stopAudioOnly() {
+    fun stopAudioOnly() {
         monitorJob?.cancel()
         monitorJob = null
         audio?.setPlaybackSpeed(1f)
