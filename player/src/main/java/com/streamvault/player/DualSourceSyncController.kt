@@ -1,9 +1,7 @@
 package com.streamvault.player
 
-import javax.inject.Inject
-
 /** Synchronization policy for two independent playback clocks. */
-class DualSourceSyncController @Inject constructor(
+class DualSourceSyncController(
     private val softThresholdMs: Long = DEFAULT_SOFT_THRESHOLD_MS,
     private val hardThresholdMs: Long = DEFAULT_HARD_THRESHOLD_MS
 ) {
