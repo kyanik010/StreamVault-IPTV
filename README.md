@@ -210,3 +210,6 @@ This project was originally released without an explicit license.
 As of April 2026, all usage, modification, and distribution are governed by the StreamVault Source-Available License (Non-Commercial).
 
 Any use of this project must comply with the terms defined in the LICENSE file.
+
+
+<!-- Dual-source verification pipeline enabled on master. -->
