@@ -582,8 +582,8 @@ private fun PlayerBottomBar(
     onOpenPlaybackSpeed: () -> Unit,
     onOpenStopPlaybackTimer: () -> Unit,
     onOpenIdleStandbyTimer: () -> Unit,
-    onOpenAudioVideoSync: () -> Unit
-    onOpenExternalAudio: () -> Unit = {},,
+    onOpenAudioVideoSync: () -> Unit,
+    onOpenExternalAudio: () -> Unit = {},
     audioVideoSyncEnabled: Boolean,
     showEpisodesAction: Boolean,
     onOpenEpisodes: () -> Unit,
@@ -779,8 +779,8 @@ private fun PlayerLiveInfo(
     onOpenVideoTracks: () -> Unit,
     onOpenStopPlaybackTimer: () -> Unit,
     onOpenIdleStandbyTimer: () -> Unit,
-    onOpenAudioVideoSync: () -> Unit
-    onOpenExternalAudio: () -> Unit = {},,
+    onOpenAudioVideoSync: () -> Unit,
+    onOpenExternalAudio: () -> Unit = {},
     audioVideoSyncEnabled: Boolean,
     onOpenSplitScreen: () -> Unit,
     onEnterPictureInPicture: () -> Unit,
@@ -1034,8 +1034,8 @@ private fun PlayerVodInfo(
     onOpenPlaybackSpeed: () -> Unit,
     onOpenStopPlaybackTimer: () -> Unit,
     onOpenIdleStandbyTimer: () -> Unit,
-    onOpenAudioVideoSync: () -> Unit
-    onOpenExternalAudio: () -> Unit = {},,
+    onOpenAudioVideoSync: () -> Unit,
+    onOpenExternalAudio: () -> Unit = {},
     showEpisodesAction: Boolean,
     onOpenEpisodes: () -> Unit,
     onEnterPictureInPicture: () -> Unit,
