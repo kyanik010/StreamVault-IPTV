@@ -30,6 +30,7 @@ import com.streamvault.player.AUDIO_VIDEO_OFFSET_MAX_MS
 import com.streamvault.player.AUDIO_VIDEO_OFFSET_MIN_MS
 import com.streamvault.player.PlaybackState
 import com.streamvault.player.PlayerEngine
+import com.streamvault.player.ExternalAudioController
 import com.streamvault.player.PlayerError
 import com.streamvault.player.PlayerPreloadContentType
 import com.streamvault.player.PlayerPreloadItem
