@@ -252,7 +252,7 @@ class DualSourcePlaybackController @Inject constructor(
         audio?.release()
         if (ownsVideo) video?.release()
         audio = null
-        if (ownsVideo) video = null
+        video = null
         videoStream = null
         audioStream = null
         audioStarted = false
