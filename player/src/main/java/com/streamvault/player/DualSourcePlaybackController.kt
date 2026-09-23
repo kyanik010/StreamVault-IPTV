@@ -101,6 +101,33 @@ class DualSourcePlaybackController @Inject constructor(
         synchronize(forceHard = true)
     }
 
+    /**
+     * Reconnect only the external audio engine. The primary video engine is untouched.
+     */
+    fun reconnectAudio() {
+        val stream = audioStream ?: return
+        val v = video ?: return
+        sessionGeneration++
+        monitorJob?.cancel()
+        monitorJob = null
+        audio?.setPlaybackSpeed(1f)
+        audio?.release()
+        audioStarted = false
+        audioReconnectAttempt = 0
+        nextAudioReconnectAtMs = 0L
+        val generation = sessionGeneration
+        audio = factory.create().also {
+            it.setAudioOnlyMode(true)
+            it.setMediaSessionEnabled(false)
+            it.setAudioFocusBypassed(true)
+            it.setPlaybackSpeed(1f)
+            it.prepare(stream, autoPlay = false)
+        }
+        publishState()
+        startMonitor(generation)
+        if (v.playbackState.value == PlaybackState.READY) synchronize(forceHard = false)
+    }
+
     fun syncNow() {
         if (audio?.playbackState?.value != PlaybackState.READY ||
             video?.playbackState?.value != PlaybackState.READY) return
