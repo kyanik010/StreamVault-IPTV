@@ -872,6 +872,7 @@ fun PlayerScreen(
                     viewModel.addAudioSourceAccount(serverUrl, username, password, name)
                 },
                 onSync = viewModel::syncAudioSource,
+                onReconnect = viewModel::reconnectAudioSource,
                 onOffsetMinus = { viewModel.adjustAudioSourceOffset(-50L) },
                 onOffsetPlus = { viewModel.adjustAudioSourceOffset(50L) },
                 onResetSync = viewModel::resetAudioSourceSync,
