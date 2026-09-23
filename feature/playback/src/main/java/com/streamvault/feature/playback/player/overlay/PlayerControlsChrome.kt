@@ -842,7 +842,6 @@ private fun PlayerLiveInfo(
             ),
             onOpenIdleStandbyTimer
         ))
-        add(PlayerActionSpec("picture_in_picture", stringResource(R.string.player_picture_in_picture), onEnterPictureInPicture))
         if (showExternalPlayerAction) {
             add(PlayerActionSpec("external_player", stringResource(R.string.player_open_in_external_player), onOpenExternalPlayer))
         }
@@ -873,7 +872,6 @@ private fun PlayerLiveInfo(
         if (audioVideoSyncEnabled && !isCastConnected) {
             add(PlayerActionSpec("audio_video_sync", stringResource(R.string.player_av_sync_short), onOpenAudioVideoSync))
         }
-        add(PlayerActionSpec("split_screen", stringResource(R.string.multiview_nav), onOpenSplitScreen))
     }
 
     Row(verticalAlignment = Alignment.Top) {
