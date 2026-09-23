@@ -142,6 +142,8 @@ class DualSourceAudioCoordinator @Inject constructor(
         }
     }
 
+    fun reconnect() { playbackController.reconnectAudio(); syncState() }
+
     fun syncNow() { playbackController.syncNow(); syncState() }
 
     fun adjustOffset(deltaMs: Long) {
