@@ -1339,6 +1339,15 @@ class Media3PlayerEngine @Inject constructor(
             }
         )
             .apply {
+                // An audio-source engine must never select or decode video tracks.
+                // This is applied after player construction and before the media source is prepared.
+                if (audioOnlyMode) {
+                    trackSelectionParameters = trackSelectionParameters
+                        .buildUpon()
+                        .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
+                        .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, true)
+                        .build()
+                }
                 videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT
                 playbackParameters = PlaybackParameters(_playbackSpeed.value)
                  setVideoFrameMetadataListener { presentationTimeUs, _, _, _ ->
