@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - feature/dual-source-audio
   workflow_dispatch:
 
 permissions:
