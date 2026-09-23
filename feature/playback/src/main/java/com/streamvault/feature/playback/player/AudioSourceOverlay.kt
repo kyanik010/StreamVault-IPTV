@@ -37,6 +37,7 @@ internal fun AudioSourceOverlay(
     onSelectProvider: (Long) -> Unit,
     onAddAudioAccount: (String, String, String, String) -> Unit,
     onSync: () -> Unit,
+    onReconnect: () -> Unit,
     onOffsetMinus: () -> Unit,
     onOffsetPlus: () -> Unit,
     onResetSync: () -> Unit,
@@ -124,6 +125,11 @@ internal fun AudioSourceOverlay(
                         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
                         colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.08f))
                     ) { Text("Sync", color = Color.White, modifier = Modifier.padding(12.dp)) }
+                    TvClickableSurface(
+                        onClick = onReconnect,
+                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
+                        colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.08f))
+                    ) { Text("Reconnect Audio", color = Color.White, modifier = Modifier.padding(12.dp)) }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TvClickableSurface(
