@@ -4,6 +4,7 @@ import android.app.ActivityManager
 import android.content.Context
 import android.os.Build
 import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import androidx.annotation.MainThread
 import androidx.annotation.OptIn
@@ -15,11 +16,15 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
+import androidx.media3.common.MediaItem
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DecoderReuseEvaluation
 import androidx.media3.exoplayer.DefaultLivePlaybackSpeedControl
 import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.Renderer
@@ -34,6 +39,7 @@ import androidx.media3.exoplayer.video.VideoRendererEventListener
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
 import androidx.media3.session.MediaSession
 import com.streamvault.domain.model.AudioOutputPreference
+import com.streamvault.domain.model.AudioSourceChannel
 import com.streamvault.domain.model.DecoderMode
 import com.streamvault.domain.model.PlaybackBufferMode
 import com.streamvault.domain.model.VodHttpProtocolMode
@@ -121,7 +127,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
+import okhttp3.Request
 
 @OptIn(UnstableApi::class)
 class Media3PlayerEngine @Inject constructor(
@@ -180,6 +188,7 @@ class Media3PlayerEngine @Inject constructor(
         private set
     private var isDisposed = false
     private var exoPlayer: ExoPlayer? = null
+    private val externalAudioController = ExternalAudioController(context, okHttpClient)
     private var audioOnlyMode = false
     private var mediaSession: MediaSession? = null
     private var requestedAudioDecoderMode: DecoderMode = DecoderMode.AUTO
@@ -446,6 +455,15 @@ class Media3PlayerEngine @Inject constructor(
             }
         }
     }
+
+    override val audioSourceChannels: StateFlow<List<AudioSourceChannel>> get() = externalAudioController.channels
+    override val selectedAudioSource: StateFlow<AudioSourceChannel?> get() = externalAudioController.selected
+    override val audioSourceSyncMs: StateFlow<Int> get() = externalAudioController.syncMs
+    override suspend fun loadAudioSourcePlaylist(url: String): Result<Int> = externalAudioController.load(url)
+    override fun playAudioSource(channel: AudioSourceChannel) = externalAudioController.play(channel)
+    override fun stopAudioSource() = externalAudioController.stop()
+    override fun setAudioSourceSyncMs(value: Int) = externalAudioController.setSyncMs(value)
+    override fun syncAudioSourceToVideo(videoPositionMs: Long) = externalAudioController.syncToVideo(videoPositionMs)
 
     override fun prepare(streamInfo: StreamInfo, autoPlay: Boolean) {
         if (ensureNotDisposed("prepare")) return
@@ -2697,5 +2715,121 @@ class Media3PlayerEngine @Inject constructor(
                 "$className($message)"
             }
             .take(600)
+    }
+}
+
+
+@OptIn(UnstableApi::class)
+private class ExternalAudioController(
+    private val context: Context,
+    private val httpClient: OkHttpClient,
+) {
+    private val prefs = context.getSharedPreferences("streamvault_audio_source", Context.MODE_PRIVATE)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val handler = Handler(Looper.getMainLooper())
+    private var player: ExoPlayer? = null
+    private val _channels = MutableStateFlow<List<AudioSourceChannel>>(emptyList())
+    val channels: StateFlow<List<AudioSourceChannel>> = _channels.asStateFlow()
+    private val _selected = MutableStateFlow<AudioSourceChannel?>(null)
+    val selected: StateFlow<AudioSourceChannel?> = _selected.asStateFlow()
+    private val _syncMs = MutableStateFlow(prefs.getInt("sync_ms", 0))
+    val syncMs: StateFlow<Int> = _syncMs.asStateFlow()
+
+    init {
+        val savedUrl = prefs.getString("m3u_url", "").orEmpty()
+        if (savedUrl.isNotBlank()) scope.launch { load(savedUrl) }
+    }
+
+    suspend fun load(rawUrl: String): Result<Int> = withContext(Dispatchers.IO) {
+        runCatching {
+            val url = rawUrl.trim()
+            require(url.isNotBlank()) { "M3U URL is empty" }
+            val request = Request.Builder().url(url).header("User-Agent", "StreamVault/Audio").build()
+            val body = httpClient.newCall(request).execute().use { response ->
+                require(response.isSuccessful) { "HTTP ${response.code}" }
+                response.body?.string().orEmpty()
+            }
+            val parsed = parseM3u(body)
+            require(parsed.isNotEmpty()) { "No audio channels found in M3U" }
+            prefs.edit().putString("m3u_url", url).apply()
+            _channels.value = parsed
+            val selectedUrl = prefs.getString("selected_url", null)
+            _selected.value = parsed.firstOrNull { it.url == selectedUrl }
+            parsed.size
+        }
+    }
+
+    fun play(channel: AudioSourceChannel) {
+        val selector = DefaultTrackSelector(context).apply {
+            parameters = buildUponParameters()
+                .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, true)
+                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                .build()
+        }
+        handler.post {
+            player?.release()
+            val dataSource = DefaultHttpDataSource.Factory()
+                .setUserAgent("StreamVault/Audio")
+                .setConnectTimeoutMs(15_000)
+                .setReadTimeoutMs(30_000)
+            player = ExoPlayer.Builder(context)
+                .setTrackSelector(selector)
+                .setMediaSourceFactory(DefaultMediaSourceFactory(dataSource))
+                .build()
+                .also {
+                    it.setMediaItem(MediaItem.fromUri(channel.url))
+                    it.prepare()
+                    it.playWhenReady = true
+                }
+        }
+        _selected.value = channel
+        prefs.edit().putString("selected_url", channel.url).apply()
+    }
+
+    fun stop() {
+        handler.post {
+            player?.stop()
+            player?.release()
+            player = null
+        }
+        _selected.value = null
+        prefs.edit().remove("selected_url").apply()
+    }
+
+    fun setSyncMs(value: Int) {
+        val clamped = value.coerceIn(-5000, 5000)
+        _syncMs.value = clamped
+        prefs.edit().putInt("sync_ms", clamped).apply()
+    }
+
+    fun syncToVideo(videoPositionMs: Long) {
+        val target = (videoPositionMs - _syncMs.value).coerceAtLeast(0L)
+        handler.post { player?.seekTo(target) }
+    }
+
+    private fun parseM3u(text: String): List<AudioSourceChannel> {
+        val result = mutableListOf<AudioSourceChannel>()
+        var name: String? = null
+        var logo: String? = null
+        var group: String? = null
+        for (raw in text.lineSequence()) {
+            val line = raw.trim()
+            when {
+                line.startsWith("#EXTINF", true) -> {
+                    name = line.substringAfterLast(',').trim().ifBlank { "Audio" }
+                    logo = Regex("""tvg-logo=["']([^"']+)["']""", RegexOption.IGNORE_CASE)
+                        .find(line)?.groupValues?.getOrNull(1)
+                    group = Regex("""group-title=["']([^"']+)["']""", RegexOption.IGNORE_CASE)
+                        .find(line)?.groupValues?.getOrNull(1)
+                }
+                line.isNotEmpty() && !line.startsWith("#") -> {
+                    name?.let { result += AudioSourceChannel(it, line, logo, group) }
+                    name = null
+                    logo = null
+                    group = null
+                }
+            }
+        }
+        return result
     }
 }
