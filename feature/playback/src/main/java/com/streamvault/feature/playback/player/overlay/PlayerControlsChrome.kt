@@ -199,6 +199,19 @@ fun PlayerControlsOverlay(
                 modifier = Modifier.align(Alignment.TopCenter)
             )
 
+            if (contentType == "LIVE") {
+                PlayerTopAudioControls(
+                    onOpenAudioSource = onOpenAudioSource,
+                    isMuted = isMuted,
+                    onToggleMute = onToggleMute,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(
+                            top = if (LocalConfiguration.current.screenWidthDp < 700) 108.dp else 142.dp
+                        )
+                )
+            }
+
             PlayerBottomBar(
                 title = title,
                 contentType = contentType,
@@ -538,6 +551,58 @@ private fun PlayerTopBar(
                         modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlayerTopAudioControls(
+    onOpenAudioSource: () -> Unit,
+    isMuted: Boolean,
+    onToggleMute: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .background(
+                Color.Black.copy(alpha = 0.68f),
+                RoundedCornerShape(999.dp)
+            )
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        PlayerQuickSettingsButton(
+            text = "Audio Source",
+            onClick = onOpenAudioSource,
+            modifier = Modifier.semantics {
+                contentDescription = "Audio Source"
+            }
+        )
+
+        TvClickableSurface(
+            onClick = onToggleMute,
+            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(999.dp)),
+            colors = ClickableSurfaceDefaults.colors(
+                containerColor = Color.White.copy(alpha = 0.10f),
+                focusedContainerColor = Primary.copy(alpha = 0.9f)
+            ),
+            modifier = Modifier
+                .size(48.dp)
+                .semantics {
+                    contentDescription = if (isMuted) "Unmute" else "Mute"
+                }
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                Text(
+                    text = if (isMuted) "🔇" else "🔊",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White
+                )
             }
         }
     }
