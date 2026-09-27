@@ -30,6 +30,24 @@ if (keystorePropertiesFile.exists()) {
     FileInputStream(keystorePropertiesFile).use(keystoreProperties::load)
 }
 
+val eagleXResDir = layout.buildDirectory.dir("generated/res/eagleX/main")
+val syncEagleXAssets = tasks.register("syncEagleXAssets") {
+    outputs.dir(eagleXResDir)
+    doLast {
+        val outDir = eagleXResDir.get().asFile.resolve("drawable-nodpi").apply { mkdirs() }
+        val base = "https://raw.githubusercontent.com/kyanik010/AerioTV-Android/HEAD/app/src/main/res/drawable-nodpi/"
+        listOf(
+            "eagle_x_activation_logo.png",
+            "eagle_x_support_qr.png",
+            "eagle_x_launcher.png"
+        ).forEach { name ->
+            java.net.URL(base + name).openStream().use { input ->
+                outDir.resolve(name).outputStream().use { output -> input.copyTo(output) }
+            }
+        }
+    }
+}
+
 val localPropertiesFile = rootProject.file("local.properties")
 val localProperties = Properties()
 if (localPropertiesFile.exists()) {
@@ -61,6 +79,7 @@ fun computeOfficialSigningCertSha256(): String {
 val officialSigningCertSha256 = computeOfficialSigningCertSha256()
 
 android {
+    sourceSets["main"].res.srcDir(eagleXResDir)
     namespace = "com.streamvault.app"
     compileSdk = 36
 
@@ -77,7 +96,6 @@ android {
         buildConfigField("String", "OFFICIAL_APPLICATION_ID", "\"com.streamvault.app\"")
         buildConfigField("String", "OFFICIAL_SIGNING_CERT_SHA256", "\"$officialSigningCertSha256\"")
         buildConfigField("String", "APP_UPDATE_CHANNEL", "\"stable\"")
-        buildConfigField("String", "DEVICE_ACTIVATION_URL", "\"https://quaftlmuobshbnlhctmf.supabase.co/functions/v1/device-activation\"")
         buildConfigField("long", "BUILD_TIMESTAMP_UTC", "0L")
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a")
@@ -548,4 +566,9 @@ tasks.configureEach {
     if (name == "hiltJavaCompileDebugUnitTest") {
         enabled = false
     }
+}
+
+// Eagle X assets are copied byte-for-byte from the AerioTV source at build time.
+tasks.matching { it.name.startsWith("process") && it.name.endsWith("Resources") }.configureEach {
+    dependsOn(syncEagleXAssets)
 }
