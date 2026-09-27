@@ -976,6 +976,7 @@ class Media3PlayerEngine @Inject constructor(
 
     override fun release() {
         if (isDisposed) return
+        externalAudioController.stop()
         isDisposed = true
         liveTimeshiftManager.detachComponentCallbacks()
         resetEngineState(restartCollectors = false)
