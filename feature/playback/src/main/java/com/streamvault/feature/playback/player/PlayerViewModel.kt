@@ -999,7 +999,7 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun syncAudioSource() {
-        dualSourceAudioCoordinator.syncNow(playerEngine.currentPosition.value)
+        dualSourceAudioCoordinator.syncNow()
     }
 
     fun adjustAudioSourceOffset(deltaMs: Long) {
