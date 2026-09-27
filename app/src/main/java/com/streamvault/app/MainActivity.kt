@@ -11,6 +11,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.core.view.doOnPreDraw
 import com.streamvault.app.cast.CastRouteChooserActivity
+import com.streamvault.app.activation.ActivationConfigStore
+import com.streamvault.app.activation.ActivationGate
+import com.streamvault.domain.usecase.ValidateAndAddProvider
+import com.streamvault.feature.playback.player.AudioSourceManager
 import com.streamvault.app.device.isTelevisionDevice
 import com.streamvault.core.ui.localization.resolveAppLocale
 import com.streamvault.app.navigation.AppNavigation
@@ -102,6 +106,15 @@ class MainActivity : ComponentActivity(), CatalogPlatformHost {
 
     @Inject
     lateinit var providerRepository: ProviderRepository
+
+    @Inject
+    lateinit var validateAndAddProvider: ValidateAndAddProvider
+
+    @Inject
+    lateinit var activationConfigStore: ActivationConfigStore
+
+    @Inject
+    lateinit var audioSourceManager: AudioSourceManager
 
     @Inject
     internal lateinit var appStartupCoordinator: AppStartupCoordinator
@@ -249,12 +262,19 @@ class MainActivity : ComponentActivity(), CatalogPlatformHost {
                             onShareReport = ::shareLatestFailureReport
                         )
                         DatabaseStartupState.Ready -> {
-                            AppNavigation(
-                                coordinator = appNavigationCoordinator,
-                                settingsPlatformHost = settingsPlatformHost,
-                                catalogPlatformHost = this@MainActivity,
-                                onCloseApp = ::finishAffinity
-                            )
+                            ActivationGate(
+                                providerRepository = providerRepository,
+                                validateAndAddProvider = validateAndAddProvider,
+                                configStore = activationConfigStore,
+                                audioSourceManager = audioSourceManager
+                            ) {
+                                AppNavigation(
+                                    coordinator = appNavigationCoordinator,
+                                    settingsPlatformHost = settingsPlatformHost,
+                                    catalogPlatformHost = this@MainActivity,
+                                    onCloseApp = ::finishAffinity
+                                )
+                            }
                             LaunchedEffect(Unit) {
                                 dispatchPendingExternalNavigationRequests()
                                 window.decorView.doOnPreDraw {
