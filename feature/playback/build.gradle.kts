@@ -20,6 +20,10 @@ plugins {
     alias(libs.plugins.kover)
 }
 
+hilt {
+    enableExperimentalClasspathAggregation = true
+}
+
 android {
     namespace = "com.streamvault.feature.playback"
     compileSdk = 36
@@ -200,7 +204,7 @@ dependencies {
     implementation(project(":core:navigation"))
     implementation(project(":core:ui"))
     implementation(project(":domain"))
-    api(project(":player"))
+    implementation(project(":player"))
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
