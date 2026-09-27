@@ -14,7 +14,8 @@ import com.streamvault.app.cast.CastRouteChooserActivity
 import com.streamvault.app.activation.ActivationConfigStore
 import com.streamvault.app.activation.ActivationGate
 import com.streamvault.domain.usecase.ValidateAndAddProvider
-import com.streamvault.feature.playback.player.AudioSourceManager
+import com.streamvault.player.AudioSourceManager
+import com.streamvault.player.AudioSourceManagerRegistry
 import com.streamvault.app.device.isTelevisionDevice
 import com.streamvault.core.ui.localization.resolveAppLocale
 import com.streamvault.app.navigation.AppNavigation
@@ -203,6 +204,7 @@ class MainActivity : ComponentActivity(), CatalogPlatformHost {
             // can freely rotate, but TV UI is designed for landscape only.
             requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         }
+        AudioSourceManagerRegistry.install(audioSourceManager)
         setContent {
             val appLanguage by preferencesRepository.appLanguage.collectAsState(initial = "system")
             val appTimeFormat by preferencesRepository.appTimeFormat.collectAsState(initial = com.streamvault.domain.model.AppTimeFormat.SYSTEM)
