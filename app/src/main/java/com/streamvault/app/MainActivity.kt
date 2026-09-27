@@ -14,7 +14,7 @@ import com.streamvault.app.cast.CastRouteChooserActivity
 import com.streamvault.app.activation.ActivationConfigStore
 import com.streamvault.app.activation.ActivationGate
 import com.streamvault.domain.usecase.ValidateAndAddProvider
-import com.streamvault.player.AudioSourceManager
+import com.streamvault.feature.playback.player.AudioSourceManager
 import com.streamvault.app.device.isTelevisionDevice
 import com.streamvault.core.ui.localization.resolveAppLocale
 import com.streamvault.app.navigation.AppNavigation
