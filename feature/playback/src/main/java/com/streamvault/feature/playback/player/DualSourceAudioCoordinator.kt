@@ -34,13 +34,23 @@ class DualSourceAudioCoordinator @Inject constructor(
 ) {
 
     private val _state = MutableStateFlow(AudioSourceUiState())
+    private val currentPlayerChannels: List<Channel>
+        get() = _lastPlayerEngine?.audioSourceChannels?.value.orEmpty().mapIndexed { index, channel ->
+            Channel(index.toLong() + 1L, channel.name, channel.name, channel.logo, channel.group, channel.url)
+        }
+    private val currentSelectedAudio: com.streamvault.domain.model.AudioSourceChannel?
+        get() = _lastPlayerEngine?.selectedAudioSource?.value
+    private val currentAudioSyncMs: Int
+        get() = _lastPlayerEngine?.audioSourceSyncMs?.value ?: 0
+    private var _lastPlayerEngine: PlayerEngine? = null
+
     val state: StateFlow<AudioSourceUiState> = _state.asStateFlow()
 
-    suspend fun load(currentProviderId: Long): AudioSourceUiState {
+    suspend fun load(currentProviderId: Long, videoEngine: PlayerEngine? = null): AudioSourceUiState {
+        if (videoEngine != null) _lastPlayerEngine = videoEngine
         _state.value = _state.value.copy(loading = true, error = null)
-        audioSourceManager.restoreSelected()
-        val channels = audioSourceManager.channels.first()
-        val selected = audioSourceManager.selected.first()
+        val channels = currentPlayerChannels
+        val selected = currentSelectedAudio
         val mapped = channels.mapIndexed { index, channel ->
             Channel(
                 id = index.toLong() + 1L,
@@ -63,7 +73,7 @@ class DualSourceAudioCoordinator @Inject constructor(
             selectedChannelId = selectedId,
             loading = false,
             error = if (mapped.isEmpty()) "لا توجد قنوات صوتية محملة" else null,
-            manualOffsetMs = audioSourceManager.syncMs.value.toLong(),
+            manualOffsetMs = currentAudioSyncMs.toLong(),
             syncState = if (selected != null) "AUDIO_ACTIVE" else "IDLE"
         )
         return _state.value
@@ -76,10 +86,8 @@ class DualSourceAudioCoordinator @Inject constructor(
 
     suspend fun select(channel: Channel, currentProviderId: Long, videoEngine: PlayerEngine, videoStream: StreamInfo): Result<Unit> {
         if (channel.streamUrl.isBlank()) return Result.error("رابط مصدر الصوت غير صالح.")
-        audioSourceManager.play(
-            AudioM3uChannel(channel.name, channel.streamUrl, channel.logoUrl, channel.groupTitle)
-        )
-        audioSourceManager.syncToVideo(videoEngine.currentPosition.value)
+        videoEngine.playAudioSource(AudioSourceChannel(channel.name, channel.streamUrl, channel.logoUrl, channel.groupTitle))
+        videoEngine.syncAudioSourceToVideo(videoEngine.currentPosition.value)
         _state.value = _state.value.copy(
             selectedChannelId = channel.id,
             error = null,
@@ -88,25 +96,25 @@ class DualSourceAudioCoordinator @Inject constructor(
         return Result.success(Unit)
     }
 
-    fun syncNow(videoPositionMs: Long) {
-        audioSourceManager.syncToVideo(videoPositionMs)
-        syncState()
+    fun syncNow(videoPositionMs: Long, videoEngine: PlayerEngine) {
+        videoEngine.syncAudioSourceToVideo(videoPositionMs)
+        syncState(videoEngine)
     }
 
-    fun adjustOffset(deltaMs: Long) {
-        audioSourceManager.setSyncMs(audioSourceManager.syncMs.value + deltaMs.toInt())
-        syncState()
+    fun adjustOffset(deltaMs: Long, videoEngine: PlayerEngine) {
+        videoEngine.setAudioSourceSyncMs(videoEngine.audioSourceSyncMs.value + deltaMs.toInt())
+        syncState(videoEngine)
     }
 
-    fun resetSync() {
-        audioSourceManager.setSyncMs(0)
-        syncState()
+    fun resetSync(videoEngine: PlayerEngine) {
+        videoEngine.setAudioSourceSyncMs(0)
+        syncState(videoEngine)
     }
 
-    fun syncState() {
+    fun syncState(videoEngine: PlayerEngine) {
         _state.value = _state.value.copy(
-            manualOffsetMs = audioSourceManager.syncMs.value.toLong(),
-            syncState = if (audioSourceManager.selected.value != null) "AUDIO_ACTIVE" else "IDLE",
+            manualOffsetMs = videoEngine.audioSourceSyncMs.value.toLong(),
+            syncState = if (videoEngine.selectedAudioSource.value != null) "AUDIO_ACTIVE" else "IDLE",
             driftMs = null,
             error = null
         )
