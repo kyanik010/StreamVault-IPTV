@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - eagle-x-aeriotv-migration
   workflow_dispatch:
 
 permissions:
