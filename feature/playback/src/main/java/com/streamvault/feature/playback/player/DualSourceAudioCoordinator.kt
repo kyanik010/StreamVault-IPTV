@@ -61,11 +61,12 @@ class DualSourceAudioCoordinator @Inject constructor(
     suspend fun select(channel: Channel, currentProviderId: Long, videoEngine: PlayerEngine, videoStream: StreamInfo): Result<Unit> {
         if (channel.streamUrl.isBlank()) return Result.error("رابط مصدر الصوت غير صالح.")
         audioSourceManager.play(AudioM3uChannel(channel.name, channel.streamUrl, channel.logoUrl, channel.groupTitle))
+        audioSourceManager.syncToVideo(videoEngine.currentPosition.value)
         _state.value = _state.value.copy(selectedChannelId = channel.id, error = null, syncState = "AUDIO_ACTIVE")
         return Result.success(Unit)
     }
 
-    fun syncNow() { audioSourceManager.syncToVideo(0L); syncState() }
+    fun syncNow(videoPositionMs: Long) { audioSourceManager.syncToVideo(videoPositionMs); syncState() }
     fun adjustOffset(deltaMs: Long) { audioSourceManager.setSyncMs(audioSourceManager.syncMs.value + deltaMs.toInt()); syncState() }
     fun resetSync() { audioSourceManager.setSyncMs(0); syncState() }
     fun syncState() {
