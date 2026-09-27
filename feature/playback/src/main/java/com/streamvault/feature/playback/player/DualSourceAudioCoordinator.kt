@@ -28,9 +28,10 @@ data class AudioSourceUiState(
     val addingAccount: Boolean = false
 )
 
-class DualSourceAudioCoordinator @Inject constructor(
-    private val audioSourceManager: AudioSourceManager,
-) {
+class DualSourceAudioCoordinator @Inject constructor() {
+    private val audioSourceManager: com.streamvault.player.AudioSourceManager
+        get() = AudioSourceManagerRegistry.get()
+
     private val _state = MutableStateFlow(AudioSourceUiState())
     val state: StateFlow<AudioSourceUiState> = _state.asStateFlow()
 
