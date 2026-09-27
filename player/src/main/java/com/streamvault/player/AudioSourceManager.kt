@@ -1,4 +1,4 @@
-package com.streamvault.feature.playback.player
+package com.streamvault.player
 
 import android.content.Context
 import android.os.Handler
