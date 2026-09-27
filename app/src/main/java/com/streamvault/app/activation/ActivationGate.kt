@@ -28,7 +28,7 @@ import com.streamvault.domain.repository.ProviderRepository
 import com.streamvault.domain.usecase.ValidateAndAddProvider
 import com.streamvault.domain.usecase.ValidateAndAddProviderResult
 import com.streamvault.domain.usecase.XtreamProviderSetupCommand
-import com.streamvault.feature.playback.player.AudioSourceManager
+import com.streamvault.player.AudioSourceManager
 import java.net.HttpURLConnection
 import java.net.NetworkInterface
 import java.net.URL
