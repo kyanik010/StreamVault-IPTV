@@ -1,3 +1,4 @@
+import java.net.URL
 import java.util.Properties
 import java.io.FileInputStream
 import java.security.KeyStore
@@ -41,7 +42,7 @@ val syncEagleXAssets = tasks.register("syncEagleXAssets") {
             "eagle_x_support_qr.png",
             "eagle_x_launcher.png"
         ).forEach { name ->
-            java.net.URL(base + name).openStream().use { input ->
+            URL(base + name).openStream().use { input ->
                 outDir.resolve(name).outputStream().use { output -> input.copyTo(output) }
             }
         }
