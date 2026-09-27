@@ -204,7 +204,7 @@ dependencies {
     implementation(project(":core:navigation"))
     implementation(project(":core:ui"))
     implementation(project(":domain"))
-    implementation(project(":player"))
+    api(project(":player"))
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
