@@ -82,11 +82,10 @@ internal fun AudioSourceOverlay(
                 Slider(
                     value = state.manualOffsetMs.toFloat(),
                     onValueChange = { value ->
-                        val delta = value.toInt() - state.manualOffsetMs
-                        if (delta != 0) {
-                            if (delta > 0) repeat((delta / 50).coerceAtMost(100)) { onOffsetPlus() }
-                            else repeat((-delta / 50).coerceAtMost(100)) { onOffsetMinus() }
-                        }
+                        val target = value.toInt().toLong()
+                        val delta = target - state.manualOffsetMs
+                        if (delta > 0) repeat((delta / 50L).coerceAtMost(100L).toInt()) { onOffsetPlus() }
+                        else if (delta < 0) repeat((-delta / 50L).coerceAtMost(100L).toInt()) { onOffsetMinus() }
                     },
                     valueRange = -5000f..5000f,
                     steps = 199
