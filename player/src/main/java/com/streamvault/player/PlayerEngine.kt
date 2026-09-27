@@ -3,6 +3,7 @@ package com.streamvault.player
 import android.content.Context
 import android.view.View
 import com.streamvault.domain.model.AudioOutputPreference
+import com.streamvault.domain.model.AudioSourceChannel
 import com.streamvault.domain.model.DecoderMode
 import com.streamvault.domain.model.PlaybackBufferMode
 import com.streamvault.domain.model.VodHttpProtocolMode
@@ -107,6 +108,15 @@ interface PlayerEngine {
     fun setInjectedSubtitleText(text: String?)
     fun setLiveAudioTap(tap: LiveAudioTap?)
     fun clearLiveAudioTap() = setLiveAudioTap(null)
+    /** Independent audio-only source, kept separate from the video player. */
+    val audioSourceChannels: StateFlow<List<AudioSourceChannel>> get() = kotlinx.coroutines.flow.MutableStateFlow(emptyList())
+    val selectedAudioSource: StateFlow<AudioSourceChannel?> get() = kotlinx.coroutines.flow.MutableStateFlow(null)
+    val audioSourceSyncMs: StateFlow<Int> get() = kotlinx.coroutines.flow.MutableStateFlow(0)
+    suspend fun loadAudioSourcePlaylist(url: String): Result<Int> = Result.success(0)
+    fun playAudioSource(channel: AudioSourceChannel) {}
+    fun stopAudioSource() {}
+    fun setAudioSourceSyncMs(value: Int) {}
+    fun syncAudioSourceToVideo(videoPositionMs: Long) {}
     fun release()
     fun resetForReuse() = release()
 
