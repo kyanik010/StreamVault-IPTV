@@ -28,7 +28,6 @@ import com.streamvault.domain.repository.ProviderRepository
 import com.streamvault.domain.usecase.ValidateAndAddProvider
 import com.streamvault.domain.usecase.ValidateAndAddProviderResult
 import com.streamvault.domain.usecase.XtreamProviderSetupCommand
-import com.streamvault.player.AudioSourceManager
 import java.net.HttpURLConnection
 import java.net.NetworkInterface
 import java.net.URL
@@ -49,7 +48,6 @@ fun ActivationGate(
     providerRepository: ProviderRepository,
     validateAndAddProvider: ValidateAndAddProvider,
     configStore: ActivationConfigStore,
-    audioSourceManager: AudioSourceManager,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
@@ -106,12 +104,8 @@ fun ActivationGate(
                     }
                 }
                 config.audio?.m3uUrl?.takeIf { it.isNotBlank() }?.let { audioUrl ->
-                    val result = withContext(Dispatchers.IO) { audioSourceManager.loadPlaylistIfChanged(audioUrl) }
-                    if (result.isFailure) {
-                        state = ActivationState.ERROR
-                        errorText = "تعذر تحميل خدمة الصوت"
-                        return@onSuccess
-                    }
+                    context.getSharedPreferences("streamvault_audio_source", Context.MODE_PRIVATE)
+                        .edit().putString("m3u_url", audioUrl).apply()
                 }
                 state = ActivationState.ACTIVE
             }
