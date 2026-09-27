@@ -28,6 +28,8 @@ jobs:
           for name in eagle_x_activation_logo.png eagle_x_support_qr.png eagle_x_launcher.png; do
             curl --fail --location --retry 3 "$base/$name" -o "app/src/main/res/drawable-nodpi/$name"
           done
+      - name: Disable configuration cache for verification
+        run: echo "org.gradle.configuration-cache=false" >> gradle.properties
 
       - name: Unit tests
         run: ./gradlew --console=plain testDebugUnitTest
