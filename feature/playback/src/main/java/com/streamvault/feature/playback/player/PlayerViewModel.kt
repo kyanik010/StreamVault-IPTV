@@ -952,6 +952,7 @@ class PlayerViewModel @Inject constructor(
 
     fun openAudioSource() {
         viewModelScope.launch {
+            dualSourceAudioCoordinator.bind(playerEngine)
             dualSourceAudioCoordinator.load(currentProviderId)
         }
     }
@@ -1002,14 +1003,17 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun adjustAudioSourceOffset(deltaMs: Long) {
+        dualSourceAudioCoordinator.bind(playerEngine)
         dualSourceAudioCoordinator.adjustOffset(deltaMs)
     }
 
     fun resetAudioSourceSync() {
+        dualSourceAudioCoordinator.bind(playerEngine)
         dualSourceAudioCoordinator.resetSync()
     }
 
     fun refreshAudioSourceState() {
+        dualSourceAudioCoordinator.bind(playerEngine)
         dualSourceAudioCoordinator.syncState()
     }
 
