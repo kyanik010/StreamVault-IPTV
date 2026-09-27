@@ -4,7 +4,8 @@ import com.streamvault.domain.model.Channel
 import com.streamvault.domain.model.LegacyProvider as Provider
 import com.streamvault.domain.model.Result
 import com.streamvault.domain.model.StreamInfo
-import com.streamvault.feature.playback.player.AudioSourceManager
+import com.streamvault.player.AudioSourceManagerRegistry
+import com.streamvault.player.AudioM3uChannel
 import com.streamvault.domain.usecase.ValidateAndAddProviderResult
 import com.streamvault.player.PlayerEngine
 import kotlinx.coroutines.flow.MutableStateFlow
