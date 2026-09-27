@@ -4,7 +4,7 @@ import com.streamvault.domain.model.Channel
 import com.streamvault.domain.model.LegacyProvider as Provider
 import com.streamvault.domain.model.Result
 import com.streamvault.domain.model.StreamInfo
-import com.streamvault.player.AudioSourceManager
+import com.streamvault.feature.playback.player.AudioSourceManager
 import com.streamvault.domain.usecase.ValidateAndAddProviderResult
 import com.streamvault.player.PlayerEngine
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,14 +40,27 @@ class DualSourceAudioCoordinator @Inject constructor(
         val channels = audioSourceManager.channels.first()
         val selected = audioSourceManager.selected.first()
         val mapped = channels.mapIndexed { index, channel ->
-            Channel(id = index.toLong() + 1L, name = channel.name, canonicalName = channel.name,
-                logoUrl = channel.logo, groupTitle = channel.group, streamUrl = channel.url)
+            Channel(
+                id = index.toLong() + 1L,
+                name = channel.name,
+                canonicalName = channel.name,
+                logoUrl = channel.logo,
+                groupTitle = channel.group,
+                streamUrl = channel.url
+            )
         }
-        val selectedId = selected?.let { s -> channels.indexOfFirst { it.url == s.url }.takeIf { it >= 0 }?.plus(1L) }
+        val selectedId = selected?.let { s ->
+            channels.indexOfFirst { it.url == s.url }.takeIf { it >= 0 }?.plus(1L)
+        }
         _state.value = _state.value.copy(
-            available = mapped.isNotEmpty(), providers = emptyList(), providerId = null,
-            providerName = "Audio M3U", channels = mapped, selectedChannelId = selectedId,
-            loading = false, error = if (mapped.isEmpty()) "لا توجد قنوات صوتية محملة" else null,
+            available = mapped.isNotEmpty(),
+            providers = emptyList(),
+            providerId = null,
+            providerName = "Audio M3U",
+            channels = mapped,
+            selectedChannelId = selectedId,
+            loading = false,
+            error = if (mapped.isEmpty()) "لا توجد قنوات صوتية محملة" else null,
             manualOffsetMs = audioSourceManager.syncMs.value.toLong(),
             syncState = if (selected != null) "AUDIO_ACTIVE" else "IDLE"
         )
@@ -61,26 +74,56 @@ class DualSourceAudioCoordinator @Inject constructor(
 
     suspend fun select(channel: Channel, currentProviderId: Long, videoEngine: PlayerEngine, videoStream: StreamInfo): Result<Unit> {
         if (channel.streamUrl.isBlank()) return Result.error("رابط مصدر الصوت غير صالح.")
-        audioSourceManager.play(AudioM3uChannel(channel.name, channel.streamUrl, channel.logoUrl, channel.groupTitle))
+        audioSourceManager.play(
+            AudioM3uChannel(channel.name, channel.streamUrl, channel.logoUrl, channel.groupTitle)
+        )
         audioSourceManager.syncToVideo(videoEngine.currentPosition.value)
-        _state.value = _state.value.copy(selectedChannelId = channel.id, error = null, syncState = "AUDIO_ACTIVE")
+        _state.value = _state.value.copy(
+            selectedChannelId = channel.id,
+            error = null,
+            syncState = "AUDIO_ACTIVE"
+        )
         return Result.success(Unit)
     }
 
-    fun syncNow(videoPositionMs: Long) { audioSourceManager.syncToVideo(videoPositionMs); syncState() }
-    fun adjustOffset(deltaMs: Long) { audioSourceManager.setSyncMs(audioSourceManager.syncMs.value + deltaMs.toInt()); syncState() }
-    fun resetSync() { audioSourceManager.setSyncMs(0); syncState() }
+    fun syncNow(videoPositionMs: Long) {
+        audioSourceManager.syncToVideo(videoPositionMs)
+        syncState()
+    }
+
+    fun adjustOffset(deltaMs: Long) {
+        audioSourceManager.setSyncMs(audioSourceManager.syncMs.value + deltaMs.toInt())
+        syncState()
+    }
+
+    fun resetSync() {
+        audioSourceManager.setSyncMs(0)
+        syncState()
+    }
+
     fun syncState() {
         _state.value = _state.value.copy(
-            manualOffsetMs = audioSourceManager.syncMs.value,
+            manualOffsetMs = audioSourceManager.syncMs.value.toLong(),
             syncState = if (audioSourceManager.selected.value != null) "AUDIO_ACTIVE" else "IDLE",
-            driftMs = null, error = null
+            driftMs = null,
+            error = null
         )
     }
+
     fun updateVideoStream(streamInfo: StreamInfo) = Unit
+
     fun remove() {
         audioSourceManager.stop()
-        _state.value = _state.value.copy(selectedChannelId = null, error = null, driftMs = null, syncState = "IDLE")
+        _state.value = _state.value.copy(
+            selectedChannelId = null,
+            error = null,
+            driftMs = null,
+            syncState = "IDLE"
+        )
     }
-    fun stop() { audioSourceManager.stop(); _state.value = AudioSourceUiState() }
+
+    fun stop() {
+        audioSourceManager.stop()
+        _state.value = AudioSourceUiState()
+    }
 }
