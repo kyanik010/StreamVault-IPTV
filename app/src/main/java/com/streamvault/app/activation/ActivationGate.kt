@@ -28,7 +28,7 @@ import com.streamvault.domain.repository.ProviderRepository
 import com.streamvault.domain.usecase.ValidateAndAddProvider
 import com.streamvault.domain.usecase.ValidateAndAddProviderResult
 import com.streamvault.domain.usecase.XtreamProviderSetupCommand
-import com.streamvault.player.AudioSourceManager
+import com.streamvault.feature.playback.player.AudioSourceManager
 import java.net.HttpURLConnection
 import java.net.NetworkInterface
 import java.net.URL
@@ -248,7 +248,7 @@ private fun readActivationId(context: Context): String {
         if (!mac.isNullOrBlank() && mac != "02:00:00:00:00:00") return mac
     }
     val androidId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: Build.FINGERPRINT
-    val digest = java.security.MessageDigest.getInstance("SHA-256").digest("aeriotv-android:" + androidId.toByteArray(Charsets.UTF_8))
+    val digest = java.security.MessageDigest.getInstance("SHA-256").digest(("aeriotv-android:" + androidId).toByteArray(Charsets.UTF_8))
     digest.copyOf(6).also { it[0] = (it[0].toInt() and 0xFC or 0x02).toByte() }
         .joinToString(":") { "%02X".format(Locale.US, it.toInt() and 0xFF) }
 }
