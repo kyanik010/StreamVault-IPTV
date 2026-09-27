@@ -77,6 +77,7 @@ android {
         buildConfigField("String", "OFFICIAL_APPLICATION_ID", "\"com.streamvault.app\"")
         buildConfigField("String", "OFFICIAL_SIGNING_CERT_SHA256", "\"$officialSigningCertSha256\"")
         buildConfigField("String", "APP_UPDATE_CHANNEL", "\"stable\"")
+        buildConfigField("String", "DEVICE_ACTIVATION_URL", "\"https://quaftlmuobshbnlhctmf.supabase.co/functions/v1/device-activation\"")
         buildConfigField("long", "BUILD_TIMESTAMP_UTC", "0L")
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a")
