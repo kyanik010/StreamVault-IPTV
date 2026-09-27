@@ -4,6 +4,7 @@ import com.streamvault.domain.model.Channel
 import com.streamvault.domain.model.LegacyProvider as Provider
 import com.streamvault.domain.model.Result
 import com.streamvault.domain.model.StreamInfo
+import com.streamvault.player.AudioSourceManager
 import com.streamvault.domain.usecase.ValidateAndAddProviderResult
 import com.streamvault.player.PlayerEngine
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -47,7 +48,7 @@ class DualSourceAudioCoordinator @Inject constructor(
             available = mapped.isNotEmpty(), providers = emptyList(), providerId = null,
             providerName = "Audio M3U", channels = mapped, selectedChannelId = selectedId,
             loading = false, error = if (mapped.isEmpty()) "لا توجد قنوات صوتية محملة" else null,
-            manualOffsetMs = audioSourceManager.syncMs.value,
+            manualOffsetMs = audioSourceManager.syncMs.value.toLong(),
             syncState = if (selected != null) "AUDIO_ACTIVE" else "IDLE"
         )
         return _state.value
