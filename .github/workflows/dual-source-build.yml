@@ -5,6 +5,7 @@ on:
     branches:
       - master
       - eagle-x-aeriotv-migration
+      - feature/external-audio-live
   workflow_dispatch:
 
 permissions:
