@@ -2946,7 +2946,7 @@ private class ExternalAudioController(
                         seekLiveToVideoClock(external, videoClock.liveOffsetMs ?: 0L)
                     }
                     kotlin.math.abs(driftMs) >= 250L -> {
-                        external.playbackParameters = if (driftMs > 0L) 0.995f else 1.005f
+                        external.playbackParameters = PlaybackParameters(if (driftMs > 0L) 0.995f else 1.005f)
                     }
                     else -> external.playbackParameters = PlaybackParameters(1f)
                 }
