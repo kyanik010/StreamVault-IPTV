@@ -1016,6 +1016,10 @@ fun PlayerScreen(
                 showDiagnostics = showDiagnostics,
                 videoFormat = videoFormat,
                 onOpenModal = { modal -> modalState = modalState.open(modal) },
+                onOpenAudioSource = {
+                    showAudioSource = true
+                    viewModel.openAudioSource()
+                },
                 onEnterPictureInPicture = enterPictureInPicture,
                 onRunRecordingAction = notificationPermissionGate::runRecordingAction,
                 onOpenCastRouteChooser = { playbackPlatformHost?.openCastRouteChooser() },
