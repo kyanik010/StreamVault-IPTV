@@ -10,14 +10,9 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import androidx.media3.common.MediaItem
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.datasource.okhttp.OkHttpDataSource
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import java.net.URL
 
 class AudioSourceConfigActivity : Activity() {
-    private var player: ExoPlayer? = null
     private lateinit var urlInput: EditText
     private lateinit var status: TextView
 
@@ -109,8 +104,6 @@ class AudioSourceConfigActivity : Activity() {
         }.getOrDefault(false)
 
     override fun onDestroy() {
-        player?.release()
-        player = null
         super.onDestroy()
     }
 }
