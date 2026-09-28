@@ -76,6 +76,7 @@ fun ChannelInfoOverlay(
     onDismiss: () -> Unit,
     onOverlayInteracted: () -> Unit,
     onOpenFullEpg: () -> Unit,
+    onOpenAudioSource: () -> Unit = {},
     onOpenLastGroup: () -> Unit,
     currentRecordingStatus: RecordingStatus?,
     onStartRecording: () -> Unit,
@@ -499,12 +500,11 @@ fun ChannelInfoOverlay(
                 }
                 item {
                     QuickActionButton(
-                        icon = stringResource(R.string.player_action_guide),
-                        label = stringResource(R.string.player_epg_short),
+                        icon = "AUDIO",
+                        label = stringResource(R.string.player_external_audio),
                         onClick = {
                             expandedPanel = null
-                            onDismiss()
-                            onOpenFullEpg()
+                            onOpenAudioSource()
                         },
                         onInteraction = { handleMainActionFocus(null) }
                     )
