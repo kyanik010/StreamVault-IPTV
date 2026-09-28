@@ -12,6 +12,7 @@ object PluginContract {
     const val MSG_GET_CONFIGURATION_VALUES = 8
     const val MSG_SET_CONFIGURATION_VALUES = 9
     const val MSG_RUN_CONFIGURATION_ACTION = 10
+    const val MSG_GET_AUDIO_CHANNELS = 20
 
     const val KEY_API_VERSION = "api_version"
     const val KEY_REQUEST_ID = "request_id"
@@ -26,5 +27,7 @@ object PluginContract {
     const val KEY_INPUT_URL = "input_url"
     const val KEY_OUTPUT_URL = "output_url"
     const val KEY_CONFIGURATION_VALUES_JSON = "configuration_values_json"
+    const val KEY_CONFIGURATION_SCHEMA_JSON = "configuration_schema_json"
     const val KEY_CONFIGURATION_ACTION_ID = "configuration_action_id"
+    const val KEY_AUDIO_CHANNELS_JSON = "audio_channels_json"
 }
