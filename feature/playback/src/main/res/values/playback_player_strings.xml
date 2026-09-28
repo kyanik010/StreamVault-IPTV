@@ -33,7 +33,7 @@
     <string name="player_action_view">View</string>
     <string name="player_archive">Archive</string>
     <string name="player_aspect_ratio_label">Aspect %1$s</string>
-    <string name="player_audio">
+    <string name="player_audio">Audio</string>
     <string name="player_external_audio">External Audio</string>
     <string name="player_chapters">Chapters</string>
     <string name="player_chapter_count">%1$d chapters</string>
