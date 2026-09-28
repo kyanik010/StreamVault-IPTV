@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:allowBackup="false"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.AudioSourcePlugin">
+        <activity
+            android:name=".AudioSourceConfigActivity"
+            android:exported="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="com.streamvault.plugin.audiosource.CONFIGURE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".StreamVaultAudioPluginService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.streamvault.plugin.API" />
+            </intent-filter>
+            <meta-data
+                android:name="com.streamvault.plugin.MANIFEST_JSON"
+                android:value="@string/plugin_manifest_json" />
+            <meta-data
+                android:name="com.streamvault.plugin.ID"
+                android:value="com.streamvault.plugin.audiosource" />
+            <meta-data
+                android:name="com.streamvault.plugin.NAME"
+                android:value="Audio Source" />
+            <meta-data
+                android:name="com.streamvault.plugin.VERSION_NAME"
+                android:value="1.0.0" />
+            <meta-data
+                android:name="com.streamvault.plugin.VERSION_CODE"
+                android:value="1" />
+            <meta-data
+                android:name="com.streamvault.plugin.DESCRIPTION"
+                android:value="External M3U audio source manager for StreamVault." />
+            <meta-data
+                android:name="com.streamvault.plugin.PROVIDER_NAME"
+                android:value="Audio Source" />
+            <meta-data
+                android:name="com.streamvault.plugin.CONFIGURATION_MODE"
+                android:value="activity" />
+            <meta-data
+                android:name="com.streamvault.plugin.CONFIGURATION_ACTIVITY_ACTION"
+                android:value="com.streamvault.plugin.audiosource.CONFIGURE" />
+            <meta-data
+                android:name="com.streamvault.plugin.CAPABILITIES"
+                android:value="provider.m3u,configuration.activity" />
+        </service>
+    </application>
+</manifest>
