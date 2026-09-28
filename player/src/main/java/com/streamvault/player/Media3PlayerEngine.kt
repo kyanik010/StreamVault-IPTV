@@ -188,7 +188,14 @@ class Media3PlayerEngine @Inject constructor(
         private set
     private var isDisposed = false
     private var exoPlayer: ExoPlayer? = null
-    private val externalAudioController = ExternalAudioController(context, okHttpClient)
+    private val externalAudioController = ExternalAudioController(
+        context = context,
+        httpClient = okHttpClient,
+        videoClockProvider = ::clockSnapshot,
+        videoIsPlayingProvider = { _isPlaying.value },
+        onExternalAudioFailure = ::restoreMainAudioAfterExternalFailure
+    )
+    private var externalAudioPreviousMainAudioEnabled: Boolean? = null
     private var audioOnlyMode = false
     private var mediaSession: MediaSession? = null
     private var requestedAudioDecoderMode: DecoderMode = DecoderMode.AUTO
@@ -460,10 +467,38 @@ class Media3PlayerEngine @Inject constructor(
     override val selectedAudioSource: StateFlow<AudioSourceChannel?> get() = externalAudioController.selected
     override val audioSourceSyncMs: StateFlow<Int> get() = externalAudioController.syncMs
     override suspend fun loadAudioSourcePlaylist(url: String): Result<Int> = externalAudioController.load(url)
-    override fun playAudioSource(channel: AudioSourceChannel) = externalAudioController.play(channel)
-    override fun stopAudioSource() = externalAudioController.stop()
+    override fun playAudioSource(channel: AudioSourceChannel) {
+        if (externalAudioPreviousMainAudioEnabled == null) {
+            externalAudioPreviousMainAudioEnabled = isMainAudioEnabled()
+        }
+        setMainAudioEnabled(false)
+        externalAudioController.play(channel)
+    }
+    override fun stopAudioSource() {
+        externalAudioController.stop()
+        restoreMainAudioAfterExternalFailure()
+    }
     override fun setAudioSourceSyncMs(value: Int) = externalAudioController.setSyncMs(value)
     override fun syncAudioSourceToVideo(videoPositionMs: Long) = externalAudioController.syncToVideo(videoPositionMs)
+
+    private fun isMainAudioEnabled(): Boolean {
+        val player = exoPlayer ?: return true
+        return C.TRACK_TYPE_AUDIO !in player.trackSelectionParameters.disabledTrackTypes
+    }
+
+    private fun setMainAudioEnabled(enabled: Boolean) {
+        exoPlayer?.let { player ->
+            player.trackSelectionParameters = player.trackSelectionParameters
+                .buildUpon()
+                .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, !enabled)
+                .build()
+        }
+    }
+
+    private fun restoreMainAudioAfterExternalFailure() {
+        externalAudioPreviousMainAudioEnabled?.let(::setMainAudioEnabled)
+        externalAudioPreviousMainAudioEnabled = null
+    }
 
     override fun prepare(streamInfo: StreamInfo, autoPlay: Boolean) {
         if (ensureNotDisposed("prepare")) return
