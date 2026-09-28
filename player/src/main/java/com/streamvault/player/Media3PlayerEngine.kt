@@ -502,6 +502,7 @@ class Media3PlayerEngine @Inject constructor(
 
     override fun prepare(streamInfo: StreamInfo, autoPlay: Boolean) {
         if (ensureNotDisposed("prepare")) return
+        if (externalAudioController.isActive()) stopAudioSource()
         if (!vodTrackPreferencesConfiguredForNextPrepare) {
             trackController.setVodTrackPreferences(exoPlayer, null)
         }
@@ -551,6 +552,7 @@ class Media3PlayerEngine @Inject constructor(
     override fun play() {
         if (audioFocusController.requestAudioFocusIfNeeded()) {
             exoPlayer?.playWhenReady = true
+            externalAudioController.onVideoPlay()
             syncTimeshiftState()
         }
     }
@@ -558,11 +560,13 @@ class Media3PlayerEngine @Inject constructor(
     override fun pause() {
         retryJob?.cancel()
         exoPlayer?.playWhenReady = false
+        externalAudioController.onVideoPause()
         audioFocusController.onPauseOrStop()
     }
 
     override fun stop() {
         retryJob?.cancel()
+        stopAudioSource()
         exoPlayer?.stop()
         _playbackState.value = PlaybackState.IDLE
         _isPlaying.value = false
@@ -584,6 +588,7 @@ class Media3PlayerEngine @Inject constructor(
             return
         }
         exoPlayer?.seekTo(positionMs)
+        externalAudioController.syncToVideo(positionMs)
     }
 
     override fun seekForward(ms: Long) {
@@ -600,6 +605,7 @@ class Media3PlayerEngine @Inject constructor(
                     player.currentPosition + ms
                 }
                 player.seekTo(newPosition)
+                externalAudioController.syncToVideo(newPosition)
             }
             return
         }
@@ -611,6 +617,7 @@ class Media3PlayerEngine @Inject constructor(
                 player.currentPosition + ms
             }
             player.seekTo(newPosition)
+            externalAudioController.syncToVideo(newPosition)
         }
     }
 
@@ -619,10 +626,13 @@ class Media3PlayerEngine @Inject constructor(
             val liveEdge = _timeshiftState.value.liveEdgePositionMs
             val target = (liveEdge - ms).coerceAtLeast(0L)
             switchToTimeshiftSnapshot(positionMs = target, autoPlay = true)
+            externalAudioController.syncToVideo(target)
             return
         }
         exoPlayer?.let { player ->
-            player.seekTo((player.currentPosition - ms).coerceAtLeast(0L))
+            val target = (player.currentPosition - ms).coerceAtLeast(0L)
+            player.seekTo(target)
+            externalAudioController.syncToVideo(target)
         }
     }
 
