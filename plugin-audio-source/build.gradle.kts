@@ -19,6 +19,4 @@ android {
 dependencies {
     implementation(libs.core.ktx)
     implementation(libs.appcompat)
-    implementation(libs.media3.exoplayer)
-    implementation(libs.media3.datasource.okhttp)
 }
