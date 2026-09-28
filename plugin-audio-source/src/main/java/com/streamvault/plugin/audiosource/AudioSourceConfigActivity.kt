@@ -1,9 +1,8 @@
 package com.streamvault.plugin.audiosource
 
 import android.app.Activity
-import android.os.Bundle
 import android.graphics.Color
-import android.view.Gravity
+import android.os.Bundle
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
@@ -13,7 +12,9 @@ import android.widget.Toast
 import java.net.URL
 
 class AudioSourceConfigActivity : Activity() {
-    private lateinit var urlInput: EditText
+    private lateinit var serverInput: EditText
+    private lateinit var usernameInput: EditText
+    private lateinit var passwordInput: EditText
     private lateinit var status: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -27,83 +28,111 @@ class AudioSourceConfigActivity : Activity() {
             setBackgroundColor(Color.rgb(8, 10, 15))
         }
 
-        fun text(value: String, size: Float = 18f): TextView =
-            TextView(this).apply {
-                this.text = value
-                textSize = size
-                setTextColor(Color.WHITE)
-                setPadding(0, 10, 0, 10)
+        fun label(value: String, size: Float = 18f) = TextView(this).apply {
+            text = value
+            textSize = size
+            setTextColor(Color.WHITE)
+            setPadding(0, 10, 0, 10)
+        }
+
+        root.addView(label("StreamVault Audio Source", 26f))
+        root.addView(label("Xtream account used only for external audio channels.", 15f))
+
+        serverInput = field("Server URL", PluginPrefs.server(this))
+        usernameInput = field("Username", PluginPrefs.username(this))
+        passwordInput = field("Password", PluginPrefs.password(this)).apply {
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
+
+        root.addView(serverInput)
+        root.addView(usernameInput)
+        root.addView(passwordInput)
+
+        root.addView(Button(this).apply {
+            text = "Save audio account"
+            setOnClickListener { saveAccount() }
+        }, marginParams())
+
+        root.addView(Button(this).apply {
+            text = "Test audio account"
+            setOnClickListener { testAccount() }
+        }, marginParams())
+
+        val disable = Button(this).apply {
+            text = if (PluginPrefs.enabled(this@AudioSourceConfigActivity)) "Disable audio source" else "Enable audio source"
+            setOnClickListener {
+                val next = !PluginPrefs.enabled(this@AudioSourceConfigActivity)
+                PluginPrefs.setEnabled(this@AudioSourceConfigActivity, next)
+                text = if (next) "Disable audio source" else "Enable audio source"
+                status.text = if (next) "Enabled" else "Disabled"
             }
+        }
+        root.addView(disable, marginParams())
 
-        root.addView(text("Audio Source", 26f))
-        root.addView(text("External M3U audio source", 15f))
+        status = label(if (PluginPrefs.server(this).isBlank()) "Not configured" else "Configured", 14f)
+        root.addView(status)
+        setContentView(root)
+    }
 
-        urlInput = EditText(this).apply {
-            setText(PluginPrefs.m3uUrl(this@AudioSourceConfigActivity))
-            hint = "M3U URL"
+    private fun field(hint: String, value: String): EditText =
+        EditText(this).apply {
+            this.hint = hint
+            setText(value)
             setSingleLine(true)
             setTextColor(Color.WHITE)
             setHintTextColor(Color.GRAY)
             setBackgroundColor(Color.rgb(21, 26, 35))
             setPadding(18, 12, 18, 12)
+            layoutParams = marginParams()
         }
-        root.addView(urlInput, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
-        ).apply { topMargin = 18 })
 
-        val save = Button(this).apply {
-            text = "Save"
-            setOnClickListener {
-                val value = urlInput.text.toString().trim()
-                if (!isHttpUrl(value)) {
-                    Toast.makeText(this@AudioSourceConfigActivity, "Enter a valid HTTP/HTTPS M3U URL", Toast.LENGTH_SHORT).show()
-                    return@setOnClickListener
-                }
-                PluginPrefs.setM3uUrl(this@AudioSourceConfigActivity, value)
-                status.text = "Saved"
-                Toast.makeText(this@AudioSourceConfigActivity, "Audio source saved", Toast.LENGTH_SHORT).show()
-            }
-        }
-        root.addView(save, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
-        ).apply { topMargin = 14 })
-
-        val test = Button(this).apply {
-            text = "Test audio source"
-            setOnClickListener { testAudio() }
-        }
-        root.addView(test, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
-        ).apply { topMargin = 8 })
-
-        status = text(
-            if (PluginPrefs.m3uUrl(this).isBlank()) "Not configured" else "Configured",
-            14f
-        ).apply { gravity = Gravity.START }
-        root.addView(status)
-
-        setContentView(root)
-    }
-
-    private fun testAudio() {
-        val url = PluginPrefs.m3uUrl(this).trim()
-        if (!isHttpUrl(url)) {
-            Toast.makeText(this, "Configure an M3U URL first", Toast.LENGTH_SHORT).show()
+    private fun saveAccount() {
+        val server = serverInput.text.toString().trim()
+        val username = usernameInput.text.toString().trim()
+        val password = passwordInput.text.toString()
+        if (!isHttpUrl(server) || username.isBlank() || password.isBlank()) {
+            Toast.makeText(this, "Enter Server URL, Username and Password.", Toast.LENGTH_SHORT).show()
             return
         }
+        PluginPrefs.saveAccount(this, server, username, password)
+        PluginPrefs.setEnabled(this, true)
+        status.text = "Saved"
+        Toast.makeText(this, "Audio account saved.", Toast.LENGTH_SHORT).show()
+    }
 
-        // A direct M3U test is intentionally lightweight: StreamVault remains the host
-        // and this Activity is only the plugin-owned configuration/runtime surface.
-        Toast.makeText(this, "M3U source is configured and ready for StreamVault", Toast.LENGTH_SHORT).show()
+    private fun testAccount() {
+        val server = serverInput.text.toString().trim().trimEnd('/')
+        val user = usernameInput.text.toString().trim()
+        val pass = passwordInput.text.toString()
+        if (!isHttpUrl(server) || user.isBlank() || pass.isBlank()) {
+            Toast.makeText(this, "Configure the account first.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        Thread {
+            try {
+                val url = URL(server + "/player_api.php?username=" +
+                    java.net.URLEncoder.encode(user, "UTF-8") +
+                    "&password=" + java.net.URLEncoder.encode(pass, "UTF-8") +
+                    "&action=get_live_streams")
+                val connection = url.openConnection() as java.net.HttpURLConnection
+                connection.connectTimeout = 10_000
+                connection.readTimeout = 15_000
+                val code = connection.responseCode
+                connection.disconnect()
+                runOnUiThread {
+                    Toast.makeText(this, if (code in 200..299) "Xtream account OK." else "Xtream HTTP $code", Toast.LENGTH_LONG).show()
+                }
+            } catch (error: Exception) {
+                runOnUiThread { Toast.makeText(this, error.message ?: "Connection failed", Toast.LENGTH_LONG).show() }
+            }
+        }.start()
     }
 
     private fun isHttpUrl(value: String): Boolean =
-        runCatching {
-            val protocol = URL(value).protocol.lowercase()
-            protocol == "http" || protocol == "https"
-        }.getOrDefault(false)
+        runCatching { val protocol = URL(value).protocol.lowercase(); protocol == "http" || protocol == "https" }.getOrDefault(false)
 
-    override fun onDestroy() {
-        super.onDestroy()
-    }
+    private fun marginParams() = LinearLayout.LayoutParams(
+        ViewGroup.LayoutParams.MATCH_PARENT,
+        ViewGroup.LayoutParams.WRAP_CONTENT
+    ).apply { topMargin = 10 }
 }
