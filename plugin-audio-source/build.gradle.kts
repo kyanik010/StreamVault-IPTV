@@ -7,6 +7,11 @@ android {
     namespace = "com.streamvault.plugin.audiosource"
     compileSdk = 36
 
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
     defaultConfig {
         applicationId = "com.streamvault.plugin.audiosource"
         minSdk = 25
