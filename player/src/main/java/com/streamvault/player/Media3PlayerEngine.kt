@@ -2770,11 +2770,16 @@ class Media3PlayerEngine @Inject constructor(
 private class ExternalAudioController(
     private val context: Context,
     private val httpClient: OkHttpClient,
+    private val videoClockProvider: () -> PlaybackClockSnapshot,
+    private val videoIsPlayingProvider: () -> Boolean,
+    private val onExternalAudioFailure: () -> Unit
 ) {
     private val prefs = context.getSharedPreferences("streamvault_audio_source", Context.MODE_PRIVATE)
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val handler = Handler(Looper.getMainLooper())
     private var player: ExoPlayer? = null
+    private var monitorJob: Job? = null
+    private var sessionGeneration = 0L
     private val _channels = MutableStateFlow<List<AudioSourceChannel>>(emptyList())
     val channels: StateFlow<List<AudioSourceChannel>> = _channels.asStateFlow()
     private val _selected = MutableStateFlow<AudioSourceChannel?>(null)
@@ -2784,8 +2789,12 @@ private class ExternalAudioController(
 
     init {
         val savedUrl = prefs.getString("m3u_url", "").orEmpty()
-        if (savedUrl.isNotBlank()) scope.launch { load(savedUrl) }
+        if (savedUrl.isNotBlank()) scope.launch {
+            load(savedUrl)
+        }
     }
+
+    fun isActive(): Boolean = _selected.value != null && player != null
 
     suspend fun load(rawUrl: String): Result<Int> = withContext(Dispatchers.IO) {
         runCatching {
@@ -2807,33 +2816,79 @@ private class ExternalAudioController(
     }
 
     fun play(channel: AudioSourceChannel) {
-        val selector = DefaultTrackSelector(context).apply {
-            parameters = buildUponParameters()
-                .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, true)
-                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
-                .build()
-        }
+        val generation = ++sessionGeneration
+        monitorJob?.cancel()
         handler.post {
+            if (generation != sessionGeneration) return@post
             player?.release()
+            val selector = DefaultTrackSelector(context).apply {
+                parameters = buildUponParameters()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, true)
+                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                    .build()
+            }
             val dataSource = DefaultHttpDataSource.Factory()
                 .setUserAgent("StreamVault/Audio")
                 .setConnectTimeoutMs(15_000)
                 .setReadTimeoutMs(30_000)
-            player = ExoPlayer.Builder(context)
+            val external = ExoPlayer.Builder(context)
                 .setTrackSelector(selector)
                 .setMediaSourceFactory(DefaultMediaSourceFactory(dataSource))
                 .build()
-                .also {
-                    it.setMediaItem(MediaItem.fromUri(channel.url))
-                    it.prepare()
-                    it.playWhenReady = true
+                .also { p ->
+                    p.volume = 0f
+                    p.addListener(object : Player.Listener {
+                        override fun onPlaybackStateChanged(playbackState: Int) {
+                            if (generation != sessionGeneration) return
+                            when (playbackState) {
+                                Player.STATE_READY -> {
+                                    p.volume = 1f
+                                    p.playWhenReady = videoIsPlayingProvider()
+                                    syncPlayerToVideo(p)
+                                }
+                                Player.STATE_IDLE,
+                                Player.STATE_BUFFERING,
+                                Player.STATE_ENDED -> Unit
+                            }
+                        }
+
+                        override fun onPlayerError(error: PlaybackException) {
+                            if (generation != sessionGeneration) return
+                            stopForFailure(generation)
+                        }
+                    })
+                    p.setMediaItem(MediaItem.fromUri(channel.url))
+                    p.prepare()
+                    p.playWhenReady = videoIsPlayingProvider()
                 }
+            player = external
         }
+
         _selected.value = channel
         prefs.edit().putString("selected_url", channel.url).apply()
+        monitorJob = scope.launch {
+            while (generation == sessionGeneration) {
+                delay(500L)
+                if (generation != sessionGeneration) break
+                val current = player ?: continue
+                current.playWhenReady = videoIsPlayingProvider()
+                syncPlayerToVideo(current)
+            }
+        }
+    }
+
+    fun onVideoPlay() {
+        handler.post { player?.playWhenReady = true }
+    }
+
+    fun onVideoPause() {
+        handler.post { player?.playWhenReady = false }
     }
 
     fun stop() {
+        sessionGeneration++
+        monitorJob?.cancel()
+        monitorJob = null
         handler.post {
             player?.stop()
             player?.release()
@@ -2843,15 +2898,111 @@ private class ExternalAudioController(
         prefs.edit().remove("selected_url").apply()
     }
 
+    private fun stopForFailure(generation: Long) {
+        if (generation != sessionGeneration) return
+        sessionGeneration++
+        monitorJob?.cancel()
+        monitorJob = null
+        handler.post {
+            player?.stop()
+            player?.release()
+            player = null
+        }
+        _selected.value = null
+        prefs.edit().remove("selected_url").apply()
+        onExternalAudioFailure()
+    }
+
     fun setSyncMs(value: Int) {
-        val clamped = value.coerceIn(-5000, 5000)
+        val clamped = value.coerceIn(-5_000, 5_000)
         _syncMs.value = clamped
         prefs.edit().putInt("sync_ms", clamped).apply()
+        handler.post { player?.let(::syncPlayerToVideo) }
     }
 
     fun syncToVideo(videoPositionMs: Long) {
-        val target = (videoPositionMs - _syncMs.value).coerceAtLeast(0L)
-        handler.post { player?.seekTo(target) }
+        handler.post {
+            player?.let { syncPlayerToVideo(it, explicitVideoPositionMs = videoPositionMs) }
+        }
+    }
+
+    private fun syncPlayerToVideo(
+        external: ExoPlayer,
+        explicitVideoPositionMs: Long? = null
+    ) {
+        if (external.playbackState == Player.STATE_IDLE) return
+        val videoClock = videoClockProvider()
+        if (!videoClock.available) return
+
+        if (videoClock.isLive) {
+            val audioClock = audioClockSnapshot(external)
+            val videoWall = videoClock.playbackWallClockMs
+            val audioWall = audioClock.playbackWallClockMs
+            if (videoWall != null && audioWall != null) {
+                val driftMs = audioWall - videoWall - _syncMs.value
+                when {
+                    kotlin.math.abs(driftMs) >= 750L -> {
+                        external.playbackParameters = PlaybackParameters(1f)
+                        seekLiveToVideoClock(external, videoClock.liveOffsetMs ?: 0L)
+                    }
+                    kotlin.math.abs(driftMs) >= 250L -> {
+                        external.playbackParameters = if (driftMs > 0L) 0.995f else 1.005f
+                    }
+                    else -> external.playbackParameters = PlaybackParameters(1f)
+                }
+                return
+            }
+            if (audioClock.available && videoClock.liveOffsetMs != null) {
+                seekLiveToVideoClock(external, videoClock.liveOffsetMs)
+            }
+            return
+        }
+
+        val videoPosition = explicitVideoPositionMs ?: videoClock.positionMs
+        val target = (videoPosition - _syncMs.value).coerceAtLeast(0L)
+        val driftMs = external.currentPosition - target
+        when {
+            kotlin.math.abs(driftMs) >= 750L -> {
+                external.playbackParameters = PlaybackParameters(1f)
+                external.seekTo(target)
+            }
+            kotlin.math.abs(driftMs) >= 250L -> {
+                external.playbackParameters = if (driftMs > 0L) 0.995f else 1.005f
+            }
+            else -> external.playbackParameters = PlaybackParameters(1f)
+        }
+    }
+
+    private fun seekLiveToVideoClock(external: ExoPlayer, videoLiveOffsetMs: Long) {
+        val targetLiveOffset = (videoLiveOffsetMs + _syncMs.value).coerceAtLeast(0L)
+        val duration = external.duration
+        if (duration != C.TIME_UNSET && duration > 0L) {
+            external.seekTo((duration - targetLiveOffset).coerceAtLeast(0L))
+        } else {
+            external.seekToDefaultPosition()
+        }
+    }
+
+    private fun audioClockSnapshot(external: ExoPlayer): PlaybackClockSnapshot {
+        val timeline = external.currentTimeline
+        val isLive = runCatching { external.isCurrentMediaItemLive }.getOrDefault(false)
+        val liveOffset = runCatching { external.currentLiveOffset }
+            .getOrNull()
+            ?.takeUnless { it == C.TIME_UNSET }
+        val wallClock = if (isLive && liveOffset != null && !timeline.isEmpty) {
+            runCatching {
+                val window = Timeline.Window()
+                timeline.getWindow(external.currentMediaItemIndex, window)
+                window.currentUnixTimeMs - liveOffset
+            }.getOrNull()
+        } else null
+        return PlaybackClockSnapshot(
+            positionMs = external.currentPosition,
+            isLive = isLive,
+            liveOffsetMs = liveOffset,
+            playbackWallClockMs = wallClock,
+            available = external.currentMediaItem != null
+        )
     }
 
     private fun parseM3u(text: String): List<AudioSourceChannel> {
