@@ -8,6 +8,11 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.Message
 import android.os.Messenger
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -20,8 +25,14 @@ class StreamVaultAudioPluginService : Service() {
         true
     }
     private val messenger = Messenger(handler)
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onBind(intent: Intent?): IBinder = messenger.binder
+
+    override fun onDestroy() {
+        serviceScope.cancel()
+        super.onDestroy()
+    }
 
     private fun handle(message: Message) {
         val request = message.data ?: Bundle.EMPTY
@@ -55,8 +66,22 @@ class StreamVaultAudioPluginService : Service() {
                     response.putString(PluginContract.KEY_MESSAGE, "Audio Source is consumed directly by the player.")
                 }
                 PluginContract.MSG_GET_AUDIO_CHANNELS -> {
-                    val channels = fetchXtreamChannels()
-                    response.putString(PluginContract.KEY_AUDIO_CHANNELS_JSON, channels.toString())
+                    val reply = message.replyTo ?: return
+                    serviceScope.launch {
+                        val asyncResponse = Bundle(response)
+                        try {
+                            val channels = fetchXtreamChannels()
+                            asyncResponse.putBoolean(PluginContract.KEY_SUCCESS, true)
+                            asyncResponse.putString(PluginContract.KEY_AUDIO_CHANNELS_JSON, channels.toString())
+                        } catch (error: Exception) {
+                            asyncResponse.putBoolean(PluginContract.KEY_SUCCESS, false)
+                            asyncResponse.putString(PluginContract.KEY_MESSAGE, error.message ?: "Plugin error")
+                        }
+                        runCatching {
+                            reply.send(Message.obtain().apply { data = asyncResponse })
+                        }
+                    }
+                    return
                 }
                 PluginContract.MSG_PREPARE_PLAYBACK -> response.putBoolean(PluginContract.KEY_HANDLED, false)
                 PluginContract.MSG_GET_CONFIGURATION_VALUES -> {
