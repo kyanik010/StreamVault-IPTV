@@ -1021,7 +1021,7 @@ class Media3PlayerEngine @Inject constructor(
 
     override fun release() {
         if (isDisposed) return
-        externalAudioController.stop()
+        stopAudioSource()
         isDisposed = true
         liveTimeshiftManager.detachComponentCallbacks()
         resetEngineState(restartCollectors = false)
@@ -1032,6 +1032,7 @@ class Media3PlayerEngine @Inject constructor(
             Log.w(TAG, "resetForReuse ignored after terminal release")
             return
         }
+        stopAudioSource()
         resetEngineState(restartCollectors = true)
     }
 
