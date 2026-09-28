@@ -500,7 +500,7 @@ fun ChannelInfoOverlay(
                 }
                 item {
                     QuickActionButton(
-                        icon = "AUDIO",
+                        icon = stringResource(R.string.player_audio),
                         label = stringResource(R.string.player_external_audio),
                         onClick = {
                             expandedPanel = null
