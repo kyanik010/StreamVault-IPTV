@@ -8,11 +8,6 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.Message
 import android.os.Messenger
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -25,14 +20,8 @@ class StreamVaultAudioPluginService : Service() {
         true
     }
     private val messenger = Messenger(handler)
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onBind(intent: Intent?): IBinder = messenger.binder
-
-    override fun onDestroy() {
-        serviceScope.cancel()
-        super.onDestroy()
-    }
 
     private fun handle(message: Message) {
         val request = message.data ?: Bundle.EMPTY
@@ -67,7 +56,7 @@ class StreamVaultAudioPluginService : Service() {
                 }
                 PluginContract.MSG_GET_AUDIO_CHANNELS -> {
                     val reply = message.replyTo ?: return
-                    serviceScope.launch {
+                    Thread {
                         val asyncResponse = Bundle(response)
                         try {
                             val channels = fetchXtreamChannels()
@@ -80,7 +69,7 @@ class StreamVaultAudioPluginService : Service() {
                         runCatching {
                             reply.send(Message.obtain().apply { data = asyncResponse })
                         }
-                    }
+                    }.start()
                     return
                 }
                 PluginContract.MSG_PREPARE_PLAYBACK -> response.putBoolean(PluginContract.KEY_HANDLED, false)
