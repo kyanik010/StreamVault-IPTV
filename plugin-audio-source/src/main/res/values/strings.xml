@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Audio Source</string>
+    <string name="plugin_manifest_json">{&quot;schemaVersion&quot;:1,&quot;id&quot;:&quot;com.streamvault.plugin.audiosource&quot;,&quot;name&quot;:&quot;Audio Source&quot;,&quot;versionName&quot;:&quot;1.0.0&quot;,&quot;versionCode&quot;:1,&quot;description&quot;:&quot;External M3U audio source manager for StreamVault.&quot;,&quot;providerName&quot;:&quot;Audio Source&quot;,&quot;configurationMode&quot;:&quot;activity&quot;,&quot;configurationActivityAction&quot;:&quot;com.streamvault.plugin.audiosource.CONFIGURE&quot;,&quot;capabilities&quot;:[&quot;provider.m3u&quot;,&quot;configuration.activity&quot;]}</string>
+</resources>
