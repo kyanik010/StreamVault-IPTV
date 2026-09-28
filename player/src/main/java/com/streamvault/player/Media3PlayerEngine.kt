@@ -2889,7 +2889,11 @@ private class ExternalAudioController(
         sessionGeneration++
         monitorJob?.cancel()
         monitorJob = null
+        val stopGeneration = sessionGeneration
         handler.post {
+            // A newer play() may already have installed another player. Never let
+            // this queued stop operation release that newer external-audio session.
+            if (stopGeneration != sessionGeneration) return@post
             player?.stop()
             player?.release()
             player = null
@@ -2903,7 +2907,11 @@ private class ExternalAudioController(
         sessionGeneration++
         monitorJob?.cancel()
         monitorJob = null
+        val failureGeneration = sessionGeneration
         handler.post {
+            // The failed player must not tear down a newer channel selected while
+            // the failure cleanup was queued on the main thread.
+            if (failureGeneration != sessionGeneration) return@post
             player?.stop()
             player?.release()
             player = null
