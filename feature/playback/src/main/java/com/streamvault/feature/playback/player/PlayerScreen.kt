@@ -865,12 +865,6 @@ fun PlayerScreen(
                     viewModel.selectAudioSource(channel)
                     showAudioSource = false
                 },
-                onSelectProvider = { providerId ->
-                    viewModel.selectAudioProvider(providerId)
-                },
-                onAddAudioAccount = { serverUrl, username, password, name ->
-                    viewModel.addAudioSourceAccount(serverUrl, username, password, name)
-                },
                 onSync = viewModel::syncAudioSource,
                 onOffsetMinus = { viewModel.adjustAudioSourceOffset(-50L) },
                 onOffsetPlus = { viewModel.adjustAudioSourceOffset(50L) },
