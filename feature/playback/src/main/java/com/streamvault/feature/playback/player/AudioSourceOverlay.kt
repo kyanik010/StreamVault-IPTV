@@ -28,8 +28,6 @@ import com.streamvault.core.ui.theme.Primary
 internal fun AudioSourceOverlay(
     state: AudioSourceUiState,
     onSelect: (com.streamvault.domain.model.Channel) -> Unit,
-    onSelectProvider: (Long) -> Unit,
-    onAddAudioAccount: (String, String, String, String) -> Unit,
     onSync: () -> Unit,
     onOffsetMinus: () -> Unit,
     onOffsetPlus: () -> Unit,
