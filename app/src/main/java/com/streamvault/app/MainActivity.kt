@@ -266,7 +266,6 @@ class MainActivity : ComponentActivity(), CatalogPlatformHost {
                                 AppNavigation(
                                     coordinator = appNavigationCoordinator,
                                     settingsPlatformHost = settingsPlatformHost,
-                                    settingsVpnPort = settingsVpnPort,
                                     catalogPlatformHost = this@MainActivity,
                                     onCloseApp = ::finishAffinity
                                 )
