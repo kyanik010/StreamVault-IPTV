@@ -142,6 +142,27 @@ fun ActivationGate(
             }
     }
 
+    suspend fun retryPendingRegistration(): Boolean {
+        val prefs = context.getSharedPreferences("streamvault_trial_registration", Context.MODE_PRIVATE)
+        val host = prefs.getString("host", null)?.trim().orEmpty()
+        val username = prefs.getString("username", null)?.trim().orEmpty()
+        val password = prefs.getString("password", null).orEmpty()
+        if (host.isBlank() || username.isBlank() || password.isBlank()) return true
+
+        val registered = withContext(Dispatchers.IO) {
+            registerTrialCredentials(
+                activationId = activationId,
+                host = host,
+                username = username,
+                password = password
+            )
+        }
+        if (registered) {
+            prefs.edit().clear().apply()
+        }
+        return registered
+    }
+
     suspend fun saveTrialCredentials(host: String, username: String, password: String): Boolean {
         state = ActivationState.ACTIVATING
         errorText = null
@@ -161,7 +182,7 @@ fun ActivationGate(
         return if (result is ValidateAndAddProviderResult.Success ||
             result is ValidateAndAddProviderResult.SavedWithWarning
         ) {
-            val registration = withContext(Dispatchers.IO) {
+            context.getSharedPreferences("streamvault_trial_registration", Context.MODE_PRIVATE)\n                .edit()\n                .putString("host", cleanHost)\n                .putString("username", cleanUsername)\n                .putString("password", password)\n                .apply()\n\n            val registration = withContext(Dispatchers.IO) {
                 registerTrialCredentials(
                     activationId = activationId,
                     host = cleanHost,
