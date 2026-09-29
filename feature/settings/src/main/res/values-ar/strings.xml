@@ -32,6 +32,8 @@
 <string name="settings_privacy">الخصوصية</string>
 <string name="settings_recording_title">التسجيل</string>
 <string name="settings_backup_restore">النسخ الاحتياطي والاستعادة</string>
+<string name="settings_vpn">VPN</string>
+<string name="settings_vpn_description">إعدادات اتصال VPN داخل التطبيق.</string>
 <string name="settings_about">حول</string>
 <string name="settings_vod_view_mode">تخطيط VOD</string>
 <string name="settings_vod_view_mode_subtitle">اختر بين عرض الرفوف العصري والتخطيط الكلاسيكي المقسّم.</string>
