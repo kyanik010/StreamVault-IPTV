@@ -528,6 +528,7 @@ public fun SettingsScreen(
                     screenLabels = screenLabels,
                     dialogState = dialogState,
                     providerState = providerState,
+                    vpnPort = vpnPort,
                     onAddProvider = onAddProvider,
                     onEditProvider = onEditProvider,
                     onNavigateToParentalControl = onNavigateToParentalControl,
