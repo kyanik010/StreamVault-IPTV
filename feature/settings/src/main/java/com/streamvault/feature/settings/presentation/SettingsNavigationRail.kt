@@ -42,6 +42,7 @@ internal val SettingsCategory.icon: ImageVector get() = when (this) {
     SettingsCategory.PRIVACY -> Icons.Rounded.Lock
     SettingsCategory.RECORDING -> Icons.Rounded.FiberManualRecord
     SettingsCategory.BACKUP -> Icons.Rounded.CloudUpload
+    SettingsCategory.VPN -> Icons.Rounded.VpnKey
     SettingsCategory.GUIDE -> Icons.Rounded.CalendarMonth
     SettingsCategory.ABOUT -> Icons.Rounded.Info
 }
@@ -62,7 +63,7 @@ public fun SettingsNavigationRail(
     LaunchedEffect(compact, selectedCategory, selectedEntryPlaced) {
         if (compact && selectedEntryPlaced) focusRequester.requestFocus()
     }
-    val visibleCategories = SettingsCategory.entries.filter { it != SettingsCategory.ABOUT }
+    val visibleCategories = SettingsCategory.entries.filter { it != SettingsCategory.ABOUT && it != SettingsCategory.GUIDE }
     val entry: @Composable (SettingsCategory) -> Unit = { category ->
         val isSelected = selectedCategory == category.legacyId
         TvClickableSurface(
