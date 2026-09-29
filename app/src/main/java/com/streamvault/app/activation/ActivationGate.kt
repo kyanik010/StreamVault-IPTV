@@ -86,7 +86,7 @@ fun ActivationGate(
                     val hasProvider = providerRepository.getProviders().first().any {
                         it.type == ProviderType.XTREAM_CODES
                     }
-                    showForm = !hasProvider
+                    showForm = false
                     return@onSuccess
                 }
 
