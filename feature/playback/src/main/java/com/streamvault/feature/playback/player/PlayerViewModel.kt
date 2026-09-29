@@ -1019,6 +1019,12 @@ class PlayerViewModel @Inject constructor(
         livePlaybackReadyForCurrentSession = false
         readySideEffectsRequestVersion = null
         playerEngine.setScrubbingMode(false)
+        val providerId = currentProviderId
+        if (providerId > 0L) {
+            viewModelScope.launch {
+                runCatching { dualSourceAudioCoordinator.preload(providerId) }
+            }
+        }
         return sessionId
     }
 
