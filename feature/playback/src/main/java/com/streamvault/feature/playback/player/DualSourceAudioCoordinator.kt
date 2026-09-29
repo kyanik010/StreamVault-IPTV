@@ -10,7 +10,6 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 
 data class AudioSourceUiState(
     val available: Boolean = false,
@@ -25,6 +24,7 @@ data class AudioSourceUiState(
 
 class DualSourceAudioCoordinator @Inject constructor(
     private val channelRepository: ChannelRepository,
+    private val audioSourceCatalogCache: AudioSourceCatalogCache,
 ) {
     private val _state = MutableStateFlow(AudioSourceUiState())
     val state: StateFlow<AudioSourceUiState> = _state.asStateFlow()
@@ -33,6 +33,12 @@ class DualSourceAudioCoordinator @Inject constructor(
     fun bind(playerEngine: PlayerEngine) {
         engine = playerEngine
         syncState()
+    }
+
+    suspend fun preload(currentProviderId: Long) {
+        if (currentProviderId > 0L) {
+            audioSourceCatalogCache.warm(currentProviderId)
+        }
     }
 
     suspend fun load(
@@ -52,10 +58,14 @@ class DualSourceAudioCoordinator @Inject constructor(
             )
         }
 
-        _state.value = _state.value.copy(loading = true, error = null)
+        val cached = audioSourceCatalogCache.get(currentProviderId)
+        _state.value = _state.value.copy(
+            loading = cached == null,
+            error = null
+        )
 
         val channels = runCatching {
-            channelRepository.getChannels(currentProviderId).first()
+            cached ?: audioSourceCatalogCache.warm(currentProviderId)
         }.getOrDefault(emptyList())
             .filter { channel ->
                 currentVideoUrl.isNullOrBlank() || channel.streamUrl != currentVideoUrl
@@ -91,10 +101,17 @@ class DualSourceAudioCoordinator @Inject constructor(
         engine = videoEngine
         if (channel.streamUrl.isBlank()) return Result.error("رابط مصدر الصوت غير صالح.")
 
+        val resolvedAudioUrl = channelRepository
+            .getStreamInfo(channel, preferStableUrl = false)
+            .getOrNull()
+            ?.url
+            ?.takeIf { it.isNotBlank() }
+            ?: channel.streamUrl
+
         videoEngine.playAudioSource(
             AudioSourceChannel(
                 channel.name,
-                channel.streamUrl,
+                resolvedAudioUrl,
                 channel.logoUrl,
                 channel.groupTitle
             )
