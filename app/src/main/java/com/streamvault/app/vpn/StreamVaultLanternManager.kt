@@ -4,7 +4,7 @@ import android.content.Context
 import com.streamvault.feature.settings.api.SettingsVpnPort
 import com.streamvault.feature.settings.api.SettingsVpnState
 import dagger.hilt.android.qualifiers.ApplicationContext
-import io.lantern.sdk.LanternManager
+import lantern.LanternClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -26,14 +26,14 @@ class StreamVaultLanternManager @Inject constructor(
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val proxyRef = MutableStateFlow<Proxy?>(null)
+    private val lanternClient = LanternClient()
     private val _state = MutableStateFlow(SettingsVpnState())
     override val state: StateFlow<SettingsVpnState> = _state.asStateFlow()
 
     init {
-        LanternManager.setup(
-            context = context,
-            appName = "StreamVault",
-            customConfigDir = context.filesDir.resolve("lantern_config").absolutePath,
+        lanternClient.setup(
+            "StreamVault",
+            context.filesDir.resolve("lantern_config").absolutePath,
         )
     }
 
@@ -47,7 +47,7 @@ class StreamVaultLanternManager @Inject constructor(
     private fun start() {
         scope.launch {
             val result = runCatching {
-                LanternManager.startLantern("127.0.0.1:0", proxyAll = true)
+                lanternClient.start("127.0.0.1:0", true)
             }.getOrNull()
             if (result == null) {
                 proxyRef.value = null
@@ -72,7 +72,7 @@ class StreamVaultLanternManager @Inject constructor(
 
     private fun stop() {
         scope.launch {
-            runCatching { LanternManager.stopLantern() }
+            runCatching { lanternClient.stop() }
             proxyRef.value = null
             _state.value = SettingsVpnState()
         }
