@@ -72,6 +72,9 @@ fun ActivationGate(
         runCatching { withContext(Dispatchers.IO) { requestActivation(activationId) } }
             .onSuccess { response ->
                 expiresAt = response.expiresAt
+                if (response.activated) {
+                    retryPendingRegistration()
+                }
 
                 if (!response.activated) {
                     showForm = false
