@@ -80,7 +80,6 @@ import com.streamvault.app.settings.AppSettingsBackupFileAdapter
 import com.streamvault.app.settings.AppSettingsPlatformHost
 import com.streamvault.domain.model.Result
 import com.streamvault.feature.settings.api.SettingsPlatformHost
-import com.streamvault.feature.settings.api.SettingsVpnPort
 import com.streamvault.feature.settings.api.SettingsRecordingPlaybackRequest
 import com.streamvault.feature.catalog.api.CatalogPlatformHost
 
@@ -112,9 +111,6 @@ class MainActivity : ComponentActivity(), CatalogPlatformHost {
 
     @Inject
     lateinit var activationConfigStore: ActivationConfigStore
-
-    @Inject
-    lateinit var settingsVpnPort: SettingsVpnPort
 
     @Inject
     internal lateinit var appStartupCoordinator: AppStartupCoordinator
