@@ -7,6 +7,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -229,43 +231,47 @@ private fun ActivationScreen(
                     listOf(Color(0xFF080A0F), Color(0xFF10141C), Color(0xFF080A0F))
                 )
             )
-            .padding(horizontal = 36.dp, vertical = 24.dp),
-        contentAlignment = Alignment.Center
     ) {
+        Column(
+            Modifier.fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
         Card(
-            Modifier.widthIn(max = 700.dp).fillMaxWidth(),
+            Modifier.widthIn(max = 760.dp).fillMaxWidth(),
             shape = RoundedCornerShape(28.dp),
             colors = CardDefaults.cardColors(containerColor = Color(0xEE151A23)),
             border = BorderStroke(1.dp, Color(0x334D7CFE))
         ) {
             Column(
-                Modifier.fillMaxWidth().padding(horizontal = 34.dp, vertical = 26.dp),
+                Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 22.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Image(
                     painterResource(com.streamvault.app.R.drawable.eagle_x_activation_logo),
                     "Eagle X2",
-                    Modifier.size(112.dp)
+                    Modifier.size(136.dp)
                 )
                 Text(
                     "Eagle X2",
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
                 Card(
+                    Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(containerColor = Color(0xFF10141C))
                 ) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("معرّف الجهاز", color = Color(0xFFA7AFBF), fontWeight = FontWeight.Medium)
-                        Text(activationId, color = Color.White, fontWeight = FontWeight.Bold)
-                    }
+                    Text(
+                        "ID : $activationId",
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
                 }
 
                 when {
