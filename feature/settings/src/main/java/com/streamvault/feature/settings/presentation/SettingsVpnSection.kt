@@ -21,14 +21,14 @@ internal fun SettingsVpnSection(
         verticalArrangement = Arrangement.spacedBy(SettingsDesignTokens.space8),
     ) {
         SwitchSettingsRow(
-            title = stringResource(R.string.settings_vpn_enable),
-            subtitle = when {
+            stringResource(R.string.settings_vpn_enable),
+            when {
                 state.running -> stringResource(R.string.settings_vpn_connected, state.proxyPort ?: 0)
                 state.errorMessage != null -> state.errorMessage
                 else -> stringResource(R.string.settings_vpn_disconnected)
             },
-            checked = state.enabled,
-            onCheckedChange = vpnPort::setEnabled,
+            state.enabled,
+            vpnPort::setEnabled,
         )
     }
 }
