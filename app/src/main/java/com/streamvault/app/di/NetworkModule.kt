@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.util.Log
 import com.streamvault.app.BuildConfig
-import com.streamvault.app.vpn.StreamVaultLanternProxySelector
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.streamvault.data.remote.NetworkTimeoutConfig
@@ -46,7 +45,6 @@ object NetworkModule {
     @Singleton
     fun provideOkHttpClient(
         @ApplicationContext context: Context,
-        proxySelector: StreamVaultLanternProxySelector,
     ): OkHttpClient {
         val appUserAgent = buildAppUserAgent(BuildConfig.VERSION_NAME)
         val isDebuggable = (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
@@ -76,7 +74,6 @@ object NetworkModule {
             .addInterceptor(httpLogger)
             .followRedirects(true)
             .followSslRedirects(true)
-            .proxySelector(proxySelector)
             .connectionPool(okhttp3.ConnectionPool(10, 5, java.util.concurrent.TimeUnit.MINUTES)) // Allow more idle connections
             .dispatcher(okhttp3.Dispatcher().apply {
                 maxRequests = 64
