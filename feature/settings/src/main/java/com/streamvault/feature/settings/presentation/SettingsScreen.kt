@@ -31,6 +31,7 @@ import com.streamvault.core.ui.theme.*
 import com.streamvault.feature.settings.R
 import com.streamvault.feature.settings.api.SettingsBackupFileCandidate
 import com.streamvault.feature.settings.api.SettingsPlatformHost
+import com.streamvault.feature.settings.api.SettingsVpnPort
 import com.streamvault.domain.model.LegacyProvider as Provider
 import androidx.compose.ui.res.stringResource
 import com.streamvault.domain.model.Result
@@ -53,6 +54,7 @@ public fun SettingsScreen(
     onNavigate: (String) -> Unit,
     currentRoute: String,
     platformHost: SettingsPlatformHost,
+    vpnPort: SettingsVpnPort,
     navigationDestinations: List<UiDestination> = emptyList(),
     onBack: () -> Unit = {},
     onAddProvider: () -> Unit = {},
