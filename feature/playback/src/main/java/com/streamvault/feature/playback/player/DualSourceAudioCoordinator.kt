@@ -60,7 +60,7 @@ class DualSourceAudioCoordinator @Inject constructor(
 
         val cached = audioSourceCatalogCache.get(currentProviderId)
         _state.value = _state.value.copy(
-            loading = cached == null,
+            loading = cached == null && !audioSourceCatalogCache.wasWarmed(currentProviderId),
             error = null
         )
 
@@ -101,17 +101,13 @@ class DualSourceAudioCoordinator @Inject constructor(
         engine = videoEngine
         if (channel.streamUrl.isBlank()) return Result.error("رابط مصدر الصوت غير صالح.")
 
-        val resolvedAudioUrl = channelRepository
-            .getStreamInfo(channel, preferStableUrl = false)
-            .getOrNull()
-            ?.url
-            ?.takeIf { it.isNotBlank() }
-            ?: channel.streamUrl
-
+        // Keep the known-good external-audio path: use the channel URL already
+        // resolved by the subscription catalog. Resolving it again here can replace
+        // the working stream with a different/expired variant before playback starts.
         videoEngine.playAudioSource(
             AudioSourceChannel(
                 channel.name,
-                resolvedAudioUrl,
+                channel.streamUrl,
                 channel.logoUrl,
                 channel.groupTitle
             )
