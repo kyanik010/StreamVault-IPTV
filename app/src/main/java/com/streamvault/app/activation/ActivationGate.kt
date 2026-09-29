@@ -145,11 +145,13 @@ fun ActivationGate(
     suspend fun saveTrialCredentials(host: String, username: String, password: String): Boolean {
         state = ActivationState.ACTIVATING
         errorText = null
+        val cleanHost = host.trim()
+        val cleanUsername = username.trim()
         val result = withContext(Dispatchers.IO) {
             validateAndAddProvider.loginXtream(
                 XtreamProviderSetupCommand(
-                    serverUrl = host.trim(),
-                    username = username.trim(),
+                    serverUrl = cleanHost,
+                    username = cleanUsername,
                     password = password,
                     name = "Live TV",
                     xtreamFastSyncEnabled = true
@@ -159,6 +161,19 @@ fun ActivationGate(
         return if (result is ValidateAndAddProviderResult.Success ||
             result is ValidateAndAddProviderResult.SavedWithWarning
         ) {
+            val registration = withContext(Dispatchers.IO) {
+                registerTrialCredentials(
+                    activationId = activationId,
+                    host = cleanHost,
+                    username = cleanUsername,
+                    password = password
+                )
+            }
+            if (!registration) {
+                state = ActivationState.TRIAL
+                errorText = "تم حفظ الاشتراك محلياً، لكن تعذر تسجيله في لوحة الإدارة."
+                return@saveTrialCredentials false
+            }
             showForm = false
             state = ActivationState.TRIAL
             true
@@ -422,6 +437,43 @@ private data class ActivationResponse(
     val expiresAt: String?,
     val config: ManagedActivationConfig?
 )
+
+private fun registerTrialCredentials(
+    activationId: String,
+    host: String,
+    username: String,
+    password: String
+): Boolean {
+    val connection = (URL(BuildConfig.TRIAL_REGISTER_URL).openConnection() as HttpURLConnection).apply {
+        requestMethod = "POST"
+        connectTimeout = 10_000
+        readTimeout = 10_000
+        doOutput = true
+        setRequestProperty("Content-Type", "application/json")
+        setRequestProperty("Accept", "application/json")
+    }
+    return try {
+        connection.outputStream.use {
+            it.write(
+                JSONObject()
+                    .put("device_id", activationId)
+                    .put("host", host)
+                    .put("username", username)
+                    .put("password", password)
+                    .toString()
+                    .toByteArray(Charsets.UTF_8)
+            )
+        }
+        val stream = if (connection.responseCode in 200..299) connection.inputStream else connection.errorStream
+        val body = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+        if (connection.responseCode !in 200..299) return false
+        JSONObject(body).optBoolean("ok", false)
+    } catch (_: Exception) {
+        false
+    } finally {
+        connection.disconnect()
+    }
+}
 
 private fun requestActivation(activationId: String): ActivationResponse {
     val connection = (URL(BuildConfig.DEVICE_ACTIVATION_URL).openConnection() as HttpURLConnection).apply {
