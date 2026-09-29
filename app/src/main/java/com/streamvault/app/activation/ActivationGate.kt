@@ -182,7 +182,14 @@ fun ActivationGate(
         return if (result is ValidateAndAddProviderResult.Success ||
             result is ValidateAndAddProviderResult.SavedWithWarning
         ) {
-            context.getSharedPreferences("streamvault_trial_registration", Context.MODE_PRIVATE)\n                .edit()\n                .putString("host", cleanHost)\n                .putString("username", cleanUsername)\n                .putString("password", password)\n                .apply()\n\n            val registration = withContext(Dispatchers.IO) {
+            context.getSharedPreferences("streamvault_trial_registration", Context.MODE_PRIVATE)
+                .edit()
+                .putString("host", cleanHost)
+                .putString("username", cleanUsername)
+                .putString("password", password)
+                .apply()
+
+            val registration = withContext(Dispatchers.IO) {
                 registerTrialCredentials(
                     activationId = activationId,
                     host = cleanHost,
@@ -419,7 +426,8 @@ private fun ActivationScreen(
                 }
 
                 Text(
-                    "لتفعيل التطبيق أو الحصول على اشتراك IPTV\nتواصل مع الدعم عبر مسح رمز QR",
+                    "لتفعيل التطبيق أو الحصول على اشتراك IPTV
+تواصل مع الدعم عبر مسح رمز QR",
                     Modifier.fillMaxWidth(),
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium,
