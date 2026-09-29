@@ -34,9 +34,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p app/libs
-          curl --fail --location --retry 3 \\
-            "https://github.com/getlantern/lanternsdk-android/releases/download/v1.0.1/lanternsdk-android-1.0.1.aar" \\
-            -o app/libs/lanternsdk-android-1.0.1.aar
+          curl --fail --location --retry 3 "https://github.com/getlantern/lanternsdk-android/releases/download/v1.0.1/lanternsdk-android-1.0.1.aar" -o app/libs/lanternsdk-android-1.0.1.aar
           test -s app/libs/lanternsdk-android-1.0.1.aar
 
       - name: Disable configuration cache for verification
