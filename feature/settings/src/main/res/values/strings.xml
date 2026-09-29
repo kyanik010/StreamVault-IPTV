@@ -726,4 +726,7 @@
     <string name="settings_drive_manage_title">Saved Drive backups</string>
     <string name="settings_providers_subtitle">Switch, sync, edit, and troubleshoot your IPTV sources.</string>
     <string name="settings_title">Settings</string>
+    <string name="settings_vpn_enable">Enable VPN</string>
+    <string name="settings_vpn_connected">Connected through Lantern · port %1$d</string>
+    <string name="settings_vpn_disconnected">Disconnected</string>
 </resources>
