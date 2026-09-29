@@ -417,7 +417,6 @@ private fun ActivationScreen(
             }
         }
     }
-    }
 }
 
 private data class ActivationResponse(
