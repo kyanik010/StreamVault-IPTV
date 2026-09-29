@@ -184,6 +184,8 @@ fun ActivationGate(
                 errorText = "تم حفظ الاشتراك محلياً، لكن تعذر تسجيله في لوحة الإدارة."
                 return@saveTrialCredentials false
             }
+            context.getSharedPreferences("streamvault_trial_registration", Context.MODE_PRIVATE)
+                .edit().clear().apply()
             showForm = false
             state = ActivationState.TRIAL
             true
