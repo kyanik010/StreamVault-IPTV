@@ -453,22 +453,26 @@ private fun requestActivation(activationId: String): ActivationResponse {
 }
 
 private fun readActivationId(context: Context): String {
-    for (name in listOf("wlan0", "eth0", "en0")) {
-        val mac = runCatching { NetworkInterface.getByName(name)?.hardwareAddress?.toMac() }.getOrNull()
-        if (!mac.isNullOrBlank() && mac != "02:00:00:00:00:00") return mac
-    }
-    val interfaces = runCatching { Collections.list(NetworkInterface.getNetworkInterfaces()) }
-        .getOrDefault(emptyList())
-    for (networkInterface in interfaces) {
-        val mac = runCatching { networkInterface.hardwareAddress?.toMac() }.getOrNull()
-        if (!mac.isNullOrBlank() && mac != "02:00:00:00:00:00") return mac
-    }
-    val androidId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: Build.FINGERPRINT
+    val prefs = context.getSharedPreferences("streamvault_device_identity", Context.MODE_PRIVATE)
+    val stored = prefs.getString("device_id", null)
+    if (!stored.isNullOrBlank()) return stored
+
+    // Android ID is scoped to the device/user and normally survives app
+    // uninstall/reinstall. It is preferable to Wi-Fi MAC, which Android
+    // restricts/randomizes on modern releases.
+    val androidId = Settings.Secure.getString(
+        context.contentResolver,
+        Settings.Secure.ANDROID_ID
+    ) ?: Build.FINGERPRINT
+
     val digest = java.security.MessageDigest.getInstance("SHA-256")
-        .digest(("aeriotv-android:" + androidId).toByteArray(Charsets.UTF_8))
-    return digest.copyOf(6).also {
-        it[0] = (it[0].toInt() and 0xFC or 0x02).toByte()
-    }.joinToString(":") { "%02X".format(Locale.US, it.toInt() and 0xFF) }
+        .digest(("streamvault-device:" + androidId).toByteArray(Charsets.UTF_8))
+
+    val token = digest.take(9).joinToString("") { "%02X".format(Locale.US, it.toInt() and 0xFF) }
+    val deviceId = "EV-" + token.chunked(3).joinToString("")
+
+    prefs.edit().putString("device_id", deviceId).apply()
+    return deviceId
 }
 
 private fun ByteArray.toMac(): String =
