@@ -15,7 +15,6 @@ import com.streamvault.core.ui.components.shell.UiDestination
 import com.streamvault.feature.settings.navigation.registerSettingsGraph
 import com.streamvault.feature.settings.parental.ParentalControlGroupScreen
 import com.streamvault.feature.settings.api.SettingsPlatformHost
-import com.streamvault.feature.settings.api.SettingsVpnPort
 import com.streamvault.feature.settings.presentation.SettingsScreen
 import com.streamvault.feature.playback.api.PlaybackPlatformHost
 import com.streamvault.feature.playback.navigation.registerPlaybackGraph
@@ -44,7 +43,6 @@ internal fun AppNavHost(
     catalogPlatformHost: CatalogPlatformHost?,
     playbackPlatformHost: PlaybackPlatformHost?,
     settingsPlatformHost: SettingsPlatformHost,
-    settingsVpnPort: SettingsVpnPort,
     navigationDestinations: List<UiDestination>,
     startupReady: Boolean,
     onStartupNavigationRequested: (popUpTo: AppDestination) -> Unit,
@@ -138,7 +136,6 @@ internal fun AppNavHost(
                     },
                     currentRoute = AppRoutePatterns.SETTINGS,
                     platformHost = platformHost,
-                    vpnPort = settingsVpnPort,
                     navigationDestinations = destinations,
                     onBack = onBack,
                     onAddProvider = dropUnlessResumed {
