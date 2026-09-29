@@ -58,14 +58,24 @@ class StreamVaultLanternManager @Inject constructor(
                 )
                 return@launch
             }
+            val port = result.addr.substringAfterLast(':').toIntOrNull()
+            if (port == null) {
+                proxyRef.value = null
+                _state.value = SettingsVpnState(
+                    enabled = true,
+                    running = false,
+                    errorMessage = "Lantern returned an invalid proxy address.",
+                )
+                return@launch
+            }
             proxyRef.value = Proxy(
                 Proxy.Type.HTTP,
-                InetSocketAddress(result.hostString, result.port),
+                InetSocketAddress("127.0.0.1", port),
             )
             _state.value = SettingsVpnState(
                 enabled = true,
                 running = true,
-                proxyPort = result.port,
+                proxyPort = port,
             )
         }
     }
