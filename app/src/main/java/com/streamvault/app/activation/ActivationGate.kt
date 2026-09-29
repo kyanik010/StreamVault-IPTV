@@ -238,16 +238,16 @@ private fun ActivationScreen(
                 .padding(horizontal = 20.dp, vertical = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-        Card(
-            Modifier.widthIn(max = 760.dp).fillMaxWidth(),
+            Card(
+                Modifier.widthIn(max = 760.dp).fillMaxWidth(),
             shape = RoundedCornerShape(28.dp),
             colors = CardDefaults.cardColors(containerColor = Color(0xEE151A23)),
             border = BorderStroke(1.dp, Color(0x334D7CFE))
         ) {
             Column(
-                Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 22.dp),
+                    Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 22.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 Image(
                     painterResource(com.streamvault.app.R.drawable.eagle_x_activation_logo),
@@ -416,6 +416,7 @@ private fun ActivationScreen(
                 }
             }
         }
+    }
     }
 }
 
