@@ -495,7 +495,6 @@ dependencies {
     implementation(libs.retrofit.gson)
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging)
-    implementation(files("libs/lanternsdk-android-1.0.1.aar"))
     implementation(libs.zxing.core)
     implementation(libs.kotlinx.serialization.json)
 
