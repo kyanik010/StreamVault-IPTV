@@ -73,7 +73,7 @@ fun ActivationGate(
             .onSuccess { response ->
                 expiresAt = response.expiresAt
                 if (response.activated) {
-                    retryPendingRegistration()
+                    retryPendingRegistration(context, activationId)
                 }
 
                 if (!response.activated) {
@@ -143,27 +143,6 @@ fun ActivationGate(
                     errorText = "تعذر الاتصال بخادم التفعيل"
                 }
             }
-    }
-
-    suspend fun retryPendingRegistration(): Boolean {
-        val prefs = context.getSharedPreferences("streamvault_trial_registration", Context.MODE_PRIVATE)
-        val host = prefs.getString("host", null)?.trim().orEmpty()
-        val username = prefs.getString("username", null)?.trim().orEmpty()
-        val password = prefs.getString("password", null).orEmpty()
-        if (host.isBlank() || username.isBlank() || password.isBlank()) return true
-
-        val registered = withContext(Dispatchers.IO) {
-            registerTrialCredentials(
-                activationId = activationId,
-                host = host,
-                username = username,
-                password = password
-            )
-        }
-        if (registered) {
-            prefs.edit().clear().apply()
-        }
-        return registered
     }
 
     suspend fun saveTrialCredentials(host: String, username: String, password: String): Boolean {
@@ -429,8 +408,7 @@ private fun ActivationScreen(
                 }
 
                 Text(
-                    "لتفعيل التطبيق أو الحصول على اشتراك IPTV
-تواصل مع الدعم عبر مسح رمز QR",
+                    "لتفعيل التطبيق أو الحصول على اشتراك IPTV\nتواصل مع الدعم عبر مسح رمز QR",
                     Modifier.fillMaxWidth(),
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium,
@@ -469,6 +447,30 @@ private data class ActivationResponse(
     val expiresAt: String?,
     val config: ManagedActivationConfig?
 )
+
+private suspend fun retryPendingRegistration(
+    context: Context,
+    activationId: String
+): Boolean {
+    val prefs = context.getSharedPreferences("streamvault_trial_registration", Context.MODE_PRIVATE)
+    val host = prefs.getString("host", null)?.trim().orEmpty()
+    val username = prefs.getString("username", null).orEmpty()
+    val password = prefs.getString("password", null).orEmpty()
+    if (host.isBlank() || username.isBlank() || password.isBlank()) return true
+
+    val registered = withContext(Dispatchers.IO) {
+        registerTrialCredentials(
+            activationId = activationId,
+            host = host,
+            username = username,
+            password = password
+        )
+    }
+    if (registered) {
+        prefs.edit().clear().apply()
+    }
+    return registered
+}
 
 private fun registerTrialCredentials(
     activationId: String,
