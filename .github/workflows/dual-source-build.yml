@@ -6,6 +6,7 @@ on:
       - master
       - eagle-x-aeriotv-migration
       - feature/external-audio-live
+      - feature/trial-activation-system
   workflow_dispatch:
 
 permissions:
