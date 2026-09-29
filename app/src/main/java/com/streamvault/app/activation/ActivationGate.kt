@@ -8,8 +8,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -226,26 +226,23 @@ private fun ActivationScreen(
 
     Box(
         Modifier.fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .background(
                 Brush.verticalGradient(
                     listOf(Color(0xFF080A0F), Color(0xFF10141C), Color(0xFF080A0F))
                 )
             )
+            .padding(horizontal = 36.dp, vertical = 24.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Column(
-            Modifier.fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Card(
-                Modifier.widthIn(max = 760.dp).fillMaxWidth(),
+        Card(
+            Modifier.widthIn(max = 700.dp).fillMaxWidth(),
             shape = RoundedCornerShape(28.dp),
             colors = CardDefaults.cardColors(containerColor = Color(0xEE151A23)),
             border = BorderStroke(1.dp, Color(0x334D7CFE))
         ) {
             Column(
-                    Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 22.dp),
+                Modifier.fillMaxWidth().padding(horizontal = 34.dp, vertical = 26.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
