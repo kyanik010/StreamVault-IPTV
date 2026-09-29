@@ -20,11 +20,13 @@ import com.streamvault.core.navigation.AppDestination
 import com.streamvault.domain.model.CatalogLayout
 import com.streamvault.feature.catalog.api.CatalogPlatformHost
 import com.streamvault.feature.settings.api.SettingsPlatformHost
+import com.streamvault.feature.settings.api.SettingsVpnPort
 
 @Composable
 fun AppNavigation(
     coordinator: AppNavigationCoordinator,
     settingsPlatformHost: SettingsPlatformHost,
+    settingsVpnPort: SettingsVpnPort,
     catalogPlatformHost: CatalogPlatformHost? = null,
     onCloseApp: () -> Unit,
     navController: NavHostController = rememberNavController()
@@ -64,6 +66,7 @@ fun AppNavigation(
             payloads = navigator,
             playbackPlatformHost = playbackPlatformHost,
             settingsPlatformHost = settingsPlatformHost,
+            settingsVpnPort = settingsVpnPort,
             catalogPlatformHost = catalogPlatformHost,
             navigationDestinations = navigationDestinations,
             startupReady = state.startupTarget != null,
