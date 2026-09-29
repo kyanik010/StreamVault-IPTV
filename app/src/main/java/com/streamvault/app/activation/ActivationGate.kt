@@ -254,6 +254,19 @@ private fun ActivationScreen(
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
+                Card(
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF10141C))
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("معرّف الجهاز", color = Color(0xFFA7AFBF), fontWeight = FontWeight.Medium)
+                        Text(activationId, color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
 
                 when {
                     state == ActivationState.EXPIRED -> {
@@ -419,7 +432,7 @@ private fun requestActivation(activationId: String): ActivationResponse {
     try {
         connection.outputStream.use {
             it.write(
-                JSONObject().put("mac_address", activationId)
+                JSONObject().put("device_id", activationId)
                     .toString().toByteArray(Charsets.UTF_8)
             )
         }
