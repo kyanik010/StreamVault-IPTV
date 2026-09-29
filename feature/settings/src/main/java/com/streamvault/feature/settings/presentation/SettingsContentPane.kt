@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import com.streamvault.domain.model.LegacyProvider as Provider
+import com.streamvault.feature.settings.api.SettingsVpnPort
 
 @Composable
 public fun SettingsContentPane(
@@ -36,6 +37,7 @@ public fun SettingsContentPane(
     screenLabels: SettingsScreenLabels,
     dialogState: SettingsScreenDialogState,
     providerState: SettingsProviderSectionState,
+    vpnPort: SettingsVpnPort,
     onAddProvider: () -> Unit,
     onEditProvider: (Provider) -> Unit,
     onNavigateToParentalControl: (Long) -> Unit,
