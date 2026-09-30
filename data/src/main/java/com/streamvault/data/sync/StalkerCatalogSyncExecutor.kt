@@ -33,6 +33,7 @@ import com.streamvault.domain.model.SyncMetadata
 import com.streamvault.domain.model.VodSyncMode
 import com.streamvault.domain.repository.ProviderSnapshotRepository
 import com.streamvault.domain.repository.SyncMetadataRepository
+import com.streamvault.domain.repository.ChannelRepository
 import com.streamvault.domain.sync.Section
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
@@ -60,6 +61,7 @@ internal class StalkerCatalogSyncExecutor(
     private val preferencesRepository: PreferencesRepository,
     private val syncMetadataRepository: SyncMetadataRepository,
     private val providerSnapshotRepository: ProviderSnapshotRepository?,
+    private val channelRepository: ChannelRepository,
     private val transactionRunner: DatabaseTransactionRunner,
     private val categoryDao: CategoryDao,
     private val channelDao: ChannelDao,
@@ -187,6 +189,15 @@ internal class StalkerCatalogSyncExecutor(
             warnings += liveCatalogResult.warnings
         }
         readinessTracker.liveReady(provider.id)
+
+        // External Audio must be prepared from the committed Live TV Room catalog before
+        // Movies/Series preparation begins. Cached valid rows are reused by the repository.
+        progress(provider.id, onProgress, "جاري تجهيز مكتبة الصوتيات...")
+        val preparedExternalAudioCount = channelRepository.prepareExternalAudioLibrary(provider.id)
+        Log.i(
+            STALKER_EXECUTOR_TAG,
+            "External Audio library ready: provider=${provider.id} prepared=$preparedExternalAudioCount live=$liveCount"
+        )
 
         if (force || catalogLayoutChanged || ContentCachePolicy.shouldRefresh(metadata.lastMovieSuccess, ContentCachePolicy.CATALOG_TTL_MILLIS, now)) {
             progress(provider.id, onProgress, "Preparing Movies...")
