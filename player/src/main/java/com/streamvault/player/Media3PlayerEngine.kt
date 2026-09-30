@@ -198,7 +198,6 @@ class Media3PlayerEngine @Inject constructor(
             onExternalAudioReady = ::disableMainAudioForExternalReady,
             dataSourceFactoryProvider = dataSourceFactoryProvider,
             mediaSourceFactory = mediaSourceFactory,
-            renderersFactoryProvider = ::buildRenderersFactory,
             vodHttpProtocolModeProvider = { requestedVodHttpProtocolMode }
         )
     }
@@ -2793,7 +2792,6 @@ private class ExternalAudioController(
     private val onExternalAudioReady: () -> Unit,
     private val dataSourceFactoryProvider: PlayerDataSourceFactoryProvider,
     private val mediaSourceFactory: PlayerMediaSourceFactory,
-    private val renderersFactoryProvider: () -> DefaultRenderersFactory,
     private val vodHttpProtocolModeProvider: () -> VodHttpProtocolMode
 ) {
     private val prefs = context.getSharedPreferences("streamvault_audio_source", Context.MODE_PRIVATE)
@@ -2866,15 +2864,8 @@ private class ExternalAudioController(
                     .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
                     .build()
             }
-            val external = ExoPlayer.Builder(context, renderersFactoryProvider())
+            val external = ExoPlayer.Builder(context)
                 .setTrackSelector(selector)
-                .setAudioAttributes(
-                    Media3AudioAttributes.Builder()
-                        .setUsage(C.USAGE_MEDIA)
-                        .setContentType(C.AUDIO_CONTENT_TYPE_UNKNOWN)
-                        .build(),
-                    false
-                )
                 .build()
                 .also { p ->
                     externalPlayer = p
