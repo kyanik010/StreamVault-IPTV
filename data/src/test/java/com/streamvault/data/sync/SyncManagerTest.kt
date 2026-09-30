@@ -57,6 +57,7 @@ import com.streamvault.domain.model.StalkerTransportMode
 import com.streamvault.domain.model.SyncMetadata
 import com.streamvault.domain.repository.EpgRepository
 import com.streamvault.domain.repository.EpgSourceRepository
+import com.streamvault.domain.repository.ChannelRepository
 import com.streamvault.data.remote.stalker.StalkerCategoryRecord
 import com.streamvault.data.remote.stalker.StalkerItemRecord
 import com.streamvault.data.remote.stalker.StalkerPagedItems
@@ -281,6 +282,7 @@ class SyncManagerTest {
     private val vodCategoryHydrationDao: VodCategoryHydrationDao = mock()
     private val vodCatalogEntryDao: VodCatalogEntryDao = mock()
     private val epgRepo: EpgRepository = mock()
+    private val channelRepository: ChannelRepository = mock()
     private val epgSourceRepo: EpgSourceRepository = mock()
     private val preferencesRepo: PreferencesRepository = mock()
     private val stalkerApiService: StalkerApiService = mock()
@@ -524,6 +526,7 @@ class SyncManagerTest {
         credentialCrypto = credentialCrypto,
         syncMetadataRepository = syncMetadataRepo,
         transactionRunner = transactionRunner,
+        channelRepository = channelRepository,
         preferencesRepository = preferencesRepo,
         syncProgressBus = SyncProgressBus(),
         stalkerRequestCoordinator = com.streamvault.data.remote.stalker.StalkerRequestCoordinator(),
