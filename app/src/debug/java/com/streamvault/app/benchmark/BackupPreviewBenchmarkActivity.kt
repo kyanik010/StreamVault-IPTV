@@ -1,6 +1,10 @@
 package com.streamvault.app.benchmark
 
 import android.os.Bundle
+import com.streamvault.app.activation.ActivationScreen
+import com.streamvault.app.activation.ActivationState
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.getValue
@@ -15,6 +19,24 @@ class BackupPreviewBenchmarkActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (intent.getBooleanExtra(EXTRA_ACTIVATION, false)) {
+            setContent {
+                StreamVaultTheme {
+                    ActivationScreen(
+                        activationId = "EV-94EB2B66AD5CDBDAD",
+                        state = ActivationState.TRIAL,
+                        expiresAt = Instant.now().plus(7, ChronoUnit.DAYS).toString(),
+                        errorText = null,
+                        showForm = false,
+                        onStart = {},
+                        onSave = { _, _, _ -> },
+                        onRetry = {},
+                    )
+                }
+            }
+            return
+        }
+
         check(intent.getStringExtra(EXTRA_PRESENTATION) == PRESENTATION_COMPOSE) {
             "Only the Compose presentation is available before the Views experiment is wired."
         }
@@ -54,6 +76,7 @@ class BackupPreviewBenchmarkActivity : ComponentActivity() {
     }
 
     companion object {
+        const val EXTRA_ACTIVATION = "activation"
         const val EXTRA_PRESENTATION = "presentation"
         const val PRESENTATION_COMPOSE = "compose"
         const val PRESENTATION_VIEWS = "views"
