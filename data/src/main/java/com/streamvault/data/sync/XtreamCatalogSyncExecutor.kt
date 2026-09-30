@@ -21,6 +21,7 @@ import com.streamvault.domain.model.ProviderType
 import com.streamvault.domain.model.SyncMetadata
 import com.streamvault.domain.model.VodSyncMode
 import com.streamvault.domain.repository.SyncMetadataRepository
+import com.streamvault.domain.repository.ChannelRepository
 import com.streamvault.domain.sync.Section
 import com.streamvault.domain.sync.SyncProgress
 import kotlinx.coroutines.flow.first
@@ -49,6 +50,7 @@ internal class XtreamCatalogSyncExecutor(
     private val applicationContext: Context,
     private val preferencesRepository: PreferencesRepository,
     private val syncMetadataRepository: SyncMetadataRepository,
+    private val channelRepository: ChannelRepository,
     private val channelDao: ChannelDao,
     private val categoryDao: CategoryDao,
     private val xtreamLiveOnboardingDao: XtreamLiveOnboardingDao,
@@ -312,7 +314,13 @@ internal class XtreamCatalogSyncExecutor(
         )
         // External Audio is derived from the already committed Live TV Room catalog.
         // This is intentionally a local preparation step: no second Xtream download is made.
-        progress(provider.id, onProgress, "جاري جلب المكتبه الصوتيه")
+        progress(provider.id, onProgress, "جاري تجهيز مكتبة الصوتيات...")
+        runSuspendCatching {
+            channelRepository.prepareExternalAudioLibrary(provider.id)
+        }.onFailure { error ->
+            warnings += "External Audio library preparation failed; it will retry when needed."
+            Log.w(TAG, "External Audio library preparation failed for provider=${provider.id}", error)
+        }
         emitProgress(
             provider.id,
             SyncProgress(
