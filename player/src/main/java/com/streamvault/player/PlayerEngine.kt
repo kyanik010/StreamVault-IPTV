@@ -114,6 +114,9 @@ interface PlayerEngine {
     val audioSourceSyncMs: StateFlow<Int> get() = kotlinx.coroutines.flow.MutableStateFlow(0)
     suspend fun loadAudioSourcePlaylist(url: String): Result<Int> = Result.success(0)
     fun playAudioSource(channel: AudioSourceChannel) {}
+    fun playAudioSource(channel: AudioSourceChannel, streamInfo: StreamInfo) {
+        playAudioSource(channel)
+    }
     fun stopAudioSource() {}
     fun setAudioSourceSyncMs(value: Int) {}
     fun syncAudioSourceToVideo(videoPositionMs: Long) {}
