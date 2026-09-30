@@ -333,29 +333,36 @@ class ChannelRepositoryImpl @Inject constructor(
             externalAudioSourceDao.deleteByProvider(providerId)
             return 0
         }
+        val existing = externalAudioSourceDao.getByProvider(providerId).associateBy { it.channelId }
         val semaphore = Semaphore(6)
         val prepared = coroutineScope {
             channels.map { entity ->
                 async(Dispatchers.IO) {
                     semaphore.withPermit {
-                        val resolved = getStreamInfo(entity.toDomain(), preferStableUrl = true).getOrNull()
-                        resolved?.takeIf { it.url.isNotBlank() }?.let { info ->
-                            ExternalAudioSourceEntity(
-                                providerId = providerId,
-                                channelId = entity.id,
-                                streamId = entity.streamId,
-                                name = entity.name,
-                                logoUrl = entity.logoUrl,
-                                groupTitle = entity.groupTitle,
-                                sourceUrl = entity.streamUrl,
-                                resolvedUrl = info.url,
-                                headersJson = encodeHeaders(info.headers),
-                                userAgent = info.userAgent,
-                                expirationTime = info.expirationTime,
-                                containerExtension = info.containerExtension,
-                                preparedAt = System.currentTimeMillis()
-                            )
-                        }
+                        val cached = existing[entity.id]
+                            ?.takeIf { it.sourceUrl == entity.streamUrl }
+                            ?.takeIf { !isPreparedSourceExpired(it.expirationTime) }
+
+                        cached ?: getStreamInfo(entity.toDomain(), preferStableUrl = true)
+                            .getOrNull()
+                            ?.takeIf { it.url.isNotBlank() }
+                            ?.let { info ->
+                                ExternalAudioSourceEntity(
+                                    providerId = providerId,
+                                    channelId = entity.id,
+                                    streamId = entity.streamId,
+                                    name = entity.name,
+                                    logoUrl = entity.logoUrl,
+                                    groupTitle = entity.groupTitle,
+                                    sourceUrl = entity.streamUrl,
+                                    resolvedUrl = info.url,
+                                    headersJson = encodeHeaders(info.headers),
+                                    userAgent = info.userAgent,
+                                    expirationTime = info.expirationTime,
+                                    containerExtension = info.containerExtension,
+                                    preparedAt = System.currentTimeMillis()
+                                )
+                            }
                     }
                 }
             }.awaitAll().filterNotNull()
@@ -470,6 +477,9 @@ class ChannelRepositoryImpl @Inject constructor(
         val json = JSONObject(raw)
         json.keys().asSequence().associateWith { key -> json.optString(key) }
     }.getOrDefault(emptyMap())
+
+    private fun isPreparedSourceExpired(expirationTime: Long?): Boolean =
+        expirationTime?.let { it > 0L && it <= System.currentTimeMillis() + 30_000L } == true
 
     private fun isExternalAudioEligible(entity: ChannelEntity): Boolean {
         val searchable = buildString {
