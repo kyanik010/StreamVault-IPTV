@@ -22,6 +22,15 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
+      - name: Copy exact Eagle X assets from AerioTV
+        run: |
+          set -euo pipefail
+          mkdir -p app/src/main/res/drawable-nodpi
+          base="https://raw.githubusercontent.com/kyanik010/AerioTV-Android/HEAD/app/src/main/res/drawable-nodpi"
+          for name in eagle_x_activation_logo.png eagle_x_support_qr.png eagle_x_launcher.png; do
+            curl --fail --location --retry 3 "$base/$name" -o "app/src/main/res/drawable-nodpi/$name"
+          done
+
       - name: Build debug APK
         run: |
           chmod +x gradlew
