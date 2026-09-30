@@ -101,31 +101,33 @@ class DualSourceAudioCoordinator @Inject constructor(
         engine = videoEngine
         if (channel.streamUrl.isBlank()) return Result.error("رابط مصدر الصوت غير صالح.")
 
-        // Room stores provider-internal stream URLs for the normal Live catalog.
-        // Resolve that URL at selection time to the same playable URL used by the
-        // normal player, but do not download the Live catalog again.
-        val resolvedAudioUrl = channelRepository
+        // Resolve once through the provider layer and retain the complete StreamInfo.
+        // This carries the same headers, User-Agent, transport policy, proxy and
+        // container metadata used by the normal video player.
+        val resolvedStreamInfo = channelRepository
             .getStreamInfo(channel, preferStableUrl = false)
             .getOrNull()
-            ?.url
-            ?.takeIf { it.isNotBlank() }
             ?: channel.streamUrl.takeUnless {
                 it.startsWith("streamvault://", ignoreCase = true) ||
                     it.startsWith("stalker://", ignoreCase = true)
+            }?.let {
+                StreamInfo(
+                    url = it,
+                    title = channel.name
+                )
             }
 
-        if (resolvedAudioUrl.isNullOrBlank()) {
+        if (resolvedStreamInfo == null || resolvedStreamInfo.url.isBlank()) {
             return Result.error("تعذر تجهيز رابط مصدر الصوت للقناة المحددة.")
         }
 
-        videoEngine.playAudioSource(
-            AudioSourceChannel(
-                channel.name,
-                resolvedAudioUrl,
-                channel.logoUrl,
-                channel.groupTitle
-            )
+        val audioChannel = AudioSourceChannel(
+            channel.name,
+            resolvedStreamInfo.url,
+            channel.logoUrl,
+            channel.groupTitle
         )
+        videoEngine.playAudioSource(audioChannel, resolvedStreamInfo)
         videoEngine.syncAudioSourceToVideo(videoEngine.currentPosition.value)
         _state.value = _state.value.copy(
             selectedChannelId = channel.id,
