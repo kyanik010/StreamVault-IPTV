@@ -366,6 +366,30 @@ class ChannelRepositoryImpl @Inject constructor(
         return prepared.size
     }
 
+    override suspend fun refreshExternalAudioSource(providerId: Long, channelId: Long): ExternalAudioSource? {
+        val entity = channelDao.getById(channelId)?.takeIf { it.providerId == providerId } ?: return null
+        if (!isExternalAudioEligible(entity) || entity.streamUrl.isBlank()) return null
+        val info = getStreamInfo(entity.toDomain(), preferStableUrl = true).getOrNull() ?: return null
+        if (info.url.isBlank()) return null
+        val saved = ExternalAudioSourceEntity(
+            providerId = providerId,
+            channelId = entity.id,
+            streamId = entity.streamId,
+            name = entity.name,
+            logoUrl = entity.logoUrl,
+            groupTitle = entity.groupTitle,
+            sourceUrl = entity.streamUrl,
+            resolvedUrl = info.url,
+            headersJson = encodeHeaders(info.headers),
+            userAgent = info.userAgent,
+            expirationTime = info.expirationTime,
+            containerExtension = info.containerExtension,
+            preparedAt = System.currentTimeMillis()
+        )
+        externalAudioSourceDao.upsert(saved)
+        return toExternalAudioSource(saved)
+    }
+
     override suspend fun refreshChannels(providerId: Long): Result<Unit> =
         Result.success(Unit)
 
