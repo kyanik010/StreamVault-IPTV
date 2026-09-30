@@ -310,6 +310,9 @@ internal class XtreamCatalogSyncExecutor(
             section = ContentType.LIVE,
             reason = "activated live catalog requires durable search-index backfill"
         )
+        // External Audio is derived from the already committed Live TV Room catalog.
+        // This is intentionally a local preparation step: no second Xtream download is made.
+        progress(provider.id, onProgress, "جاري جلب المكتبه الصوتيه")
         emitProgress(
             provider.id,
             SyncProgress(
