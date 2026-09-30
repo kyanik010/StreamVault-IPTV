@@ -4,7 +4,6 @@ import com.streamvault.domain.model.AudioSourceChannel
 import com.streamvault.domain.model.Channel
 import com.streamvault.domain.model.Result
 import com.streamvault.domain.model.StreamInfo
-import com.streamvault.domain.repository.ChannelRepository
 import com.streamvault.player.PlayerEngine
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,7 +22,6 @@ data class AudioSourceUiState(
 )
 
 class DualSourceAudioCoordinator @Inject constructor(
-    private val channelRepository: ChannelRepository,
     private val audioSourceCatalogCache: AudioSourceCatalogCache,
 ) {
     private val _state = MutableStateFlow(AudioSourceUiState())
@@ -101,21 +99,26 @@ class DualSourceAudioCoordinator @Inject constructor(
         engine = videoEngine
         if (channel.streamUrl.isBlank()) return Result.error("رابط مصدر الصوت غير صالح.")
 
-        // Resolve once through the provider layer and retain the complete StreamInfo.
-        // This carries the same headers, User-Agent, transport policy, proxy and
-        // container metadata used by the normal video player.
-        val resolvedStreamInfo = channelRepository
-            .getStreamInfo(channel, preferStableUrl = false)
-            .getOrNull()
-            ?: channel.streamUrl.takeUnless {
-                it.startsWith("streamvault://", ignoreCase = true) ||
-                    it.startsWith("stalker://", ignoreCase = true)
-            }?.let {
-                StreamInfo(
-                    url = it,
-                    title = channel.name
-                )
-            }
+        var prepared = audioSourceCatalogCache.getPrepared(currentProviderId, channel.id)
+        if (prepared?.isExpired() == true) {
+            prepared = audioSourceCatalogCache.refreshPrepared(currentProviderId, channel.id)
+        }
+        if (prepared == null) {
+            // Compatibility path for old subscriptions whose library has not been prepared yet.
+            audioSourceCatalogCache.warm(currentProviderId)
+            prepared = audioSourceCatalogCache.getPrepared(currentProviderId, channel.id)
+        }
+
+        val resolvedStreamInfo = prepared?.let {
+            StreamInfo(
+                url = it.resolvedUrl,
+                title = it.name,
+                headers = it.headers,
+                userAgent = it.userAgent,
+                containerExtension = it.containerExtension,
+                expirationTime = it.expirationTime
+            )
+        }
 
         if (resolvedStreamInfo == null || resolvedStreamInfo.url.isBlank()) {
             return Result.error("تعذر تجهيز رابط مصدر الصوت للقناة المحددة.")
