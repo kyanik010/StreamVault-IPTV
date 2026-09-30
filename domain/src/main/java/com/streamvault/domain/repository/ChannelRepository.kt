@@ -1,6 +1,7 @@
 package com.streamvault.domain.repository
 
 import com.streamvault.domain.model.Category
+import com.streamvault.domain.model.ExternalAudioSource
 import com.streamvault.domain.model.Channel
 import com.streamvault.domain.model.Result
 import com.streamvault.domain.model.StreamInfo
@@ -23,6 +24,9 @@ interface ChannelRepository {
     fun searchChannels(providerId: Long, query: String): Flow<List<Channel>>
     suspend fun getChannel(channelId: Long): Channel?
     suspend fun getStreamInfo(channel: Channel, preferStableUrl: Boolean = false): Result<StreamInfo>
+    suspend fun getExternalAudioSources(providerId: Long): List<ExternalAudioSource>
+    suspend fun getExternalAudioSource(providerId: Long, channelId: Long): ExternalAudioSource?
+    suspend fun prepareExternalAudioLibrary(providerId: Long): Int
     suspend fun refreshChannels(providerId: Long): Result<Unit>
     fun getChannelsByIds(ids: List<Long>): Flow<List<Channel>>
     suspend fun incrementChannelErrorCount(channelId: Long): Result<Unit>
