@@ -27,6 +27,7 @@ interface ChannelRepository {
     suspend fun getExternalAudioSources(providerId: Long): List<ExternalAudioSource>
     suspend fun getExternalAudioSource(providerId: Long, channelId: Long): ExternalAudioSource?
     suspend fun prepareExternalAudioLibrary(providerId: Long): Int
+    suspend fun refreshExternalAudioSource(providerId: Long, channelId: Long): ExternalAudioSource?
     suspend fun refreshChannels(providerId: Long): Result<Unit>
     fun getChannelsByIds(ids: List<Long>): Flow<List<Channel>>
     suspend fun incrementChannelErrorCount(channelId: Long): Result<Unit>
