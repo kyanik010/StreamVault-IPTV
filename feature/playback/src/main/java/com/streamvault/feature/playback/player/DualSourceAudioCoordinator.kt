@@ -101,13 +101,27 @@ class DualSourceAudioCoordinator @Inject constructor(
         engine = videoEngine
         if (channel.streamUrl.isBlank()) return Result.error("رابط مصدر الصوت غير صالح.")
 
-        // Keep the known-good external-audio path: use the channel URL already
-        // resolved by the subscription catalog. Resolving it again here can replace
-        // the working stream with a different/expired variant before playback starts.
+        // Room stores provider-internal stream URLs for the normal Live catalog.
+        // Resolve that URL at selection time to the same playable URL used by the
+        // normal player, but do not download the Live catalog again.
+        val resolvedAudioUrl = channelRepository
+            .getStreamInfo(channel, preferStableUrl = false)
+            .getOrNull()
+            ?.url
+            ?.takeIf { it.isNotBlank() }
+            ?: channel.streamUrl.takeUnless {
+                it.startsWith("streamvault://", ignoreCase = true) ||
+                    it.startsWith("stalker://", ignoreCase = true)
+            }
+
+        if (resolvedAudioUrl.isNullOrBlank()) {
+            return Result.error("تعذر تجهيز رابط مصدر الصوت للقناة المحددة.")
+        }
+
         videoEngine.playAudioSource(
             AudioSourceChannel(
                 channel.name,
-                channel.streamUrl,
+                resolvedAudioUrl,
                 channel.logoUrl,
                 channel.groupTitle
             )
