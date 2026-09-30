@@ -43,7 +43,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
-private enum class ActivationState {
+internal enum class ActivationState {
     CHECKING, TRIAL, ACTIVATING, NOT_REGISTERED, ACTIVE, SUSPENDED, EXPIRED, ERROR
 }
 
@@ -229,7 +229,7 @@ fun ActivationGate(
 }
 
 @Composable
-private fun ActivationScreen(
+internal fun ActivationScreen(
     activationId: String,
     state: ActivationState,
     expiresAt: String?,
