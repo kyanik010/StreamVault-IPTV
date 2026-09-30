@@ -94,6 +94,7 @@ import com.streamvault.domain.model.XtreamConfig
 import com.streamvault.domain.repository.EpgRepository
 import com.streamvault.domain.repository.EpgSourceRepository
 import com.streamvault.domain.repository.SyncMetadataRepository
+import com.streamvault.domain.repository.ChannelRepository
 import com.streamvault.domain.repository.M3uClassificationRepository
 import com.streamvault.domain.repository.ProviderSnapshotRepository
 import com.streamvault.domain.sync.Section
@@ -205,6 +206,7 @@ class SyncManager @Inject constructor(
     private val okHttpClient: OkHttpClient,
     credentialCrypto: CredentialCrypto,
     private val syncMetadataRepository: SyncMetadataRepository,
+    private val channelRepository: ChannelRepository,
     private val transactionRunner: DatabaseTransactionRunner,
     private val preferencesRepository: com.streamvault.data.preferences.PreferencesRepository,
     private val syncProgressBus: SyncProgressBus,
@@ -568,6 +570,7 @@ class SyncManager @Inject constructor(
             applicationContext = applicationContext,
             preferencesRepository = preferencesRepository,
             syncMetadataRepository = syncMetadataRepository,
+            channelRepository = channelRepository,
             channelDao = channelDao,
             categoryDao = categoryDao,
             xtreamLiveOnboardingDao = xtreamLiveOnboardingDao,
