@@ -247,16 +247,18 @@ class ProviderRepositoryImpl @Inject constructor(
         val normalizedUsername = ProviderInputSanitizer.normalizeUsername(username)
         if (normalizedServerUrl.isBlank() || normalizedUsername.isBlank() || password.isBlank()) return false
 
-        return providerDao.getAllSync().asSequence()
-            .mapNotNull { entity -> providerCapabilityResolver.snapshot(entity.id) }
-            .filter { snapshot -> snapshot.provider.type == ProviderType.XTREAM_CODES }
-            .map { it.configuration }
-            .filterIsInstance<XtreamConfig>()
-            .any { config ->
-                config.serverUrl.trimEnd('/') == normalizedServerUrl &&
-                    config.username == normalizedUsername &&
-                    config.password == password
+        for (entity in providerDao.getAllSync()) {
+            val snapshot = providerCapabilityResolver.snapshot(entity.id) ?: continue
+            if (snapshot.provider.type != ProviderType.XTREAM_CODES) continue
+            val config = snapshot.configuration as? XtreamConfig ?: continue
+            if (config.serverUrl.trimEnd('/') == normalizedServerUrl &&
+                config.username == normalizedUsername &&
+                config.password == password
+            ) {
+                return true
             }
+        }
+        return false
     }
 
     override suspend fun getAllProviderCredentials(): List<ProviderCredentials> {
