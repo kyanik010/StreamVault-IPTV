@@ -8,6 +8,7 @@ import com.streamvault.data.local.dao.ChannelDao
 import com.streamvault.data.local.dao.FavoriteDao
 import com.streamvault.data.local.dao.ProviderSnapshotDao
 import com.streamvault.data.local.entity.CategoryEntity
+import com.streamvault.data.local.entity.ExternalAudioSourceEntity
 import com.streamvault.data.local.entity.ChannelBrowseEntity
 import com.streamvault.data.local.entity.CategoryCount
 import com.streamvault.data.mapper.toDomain
@@ -23,6 +24,7 @@ import com.streamvault.domain.model.Channel
 import com.streamvault.domain.model.ChannelNumberingMode
 import com.streamvault.domain.model.ChannelQualityOption
 import com.streamvault.domain.model.ContentType
+import com.streamvault.domain.model.ExternalAudioSource
 import com.streamvault.domain.model.GroupedChannelLabelMode
 import com.streamvault.domain.model.LiveChannelGroupingMode
 import com.streamvault.domain.model.LiveChannelObservedQuality
@@ -49,12 +51,19 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import org.json.JSONObject
 import javax.inject.Singleton
 
 @Singleton
 @OptIn(ExperimentalCoroutinesApi::class)
 class ChannelRepositoryImpl @Inject constructor(
     private val channelDao: ChannelDao,
+    private val externalAudioSourceDao: com.streamvault.data.local.dao.ExternalAudioSourceDao,
     private val categoryDao: CategoryDao,
     private val favoriteDao: FavoriteDao,
     private val categoryFlowCache: ChannelCategoryFlowCache,
@@ -308,6 +317,55 @@ class ChannelRepositoryImpl @Inject constructor(
         Result.error(e.message ?: "Failed to resolve stream URL for channel: ${channel.name}", e)
     }
 
+    override suspend fun getExternalAudioSources(providerId: Long): List<ExternalAudioSource> =
+        externalAudioSourceDao.getByProvider(providerId).map(::toExternalAudioSource)
+
+    override suspend fun getExternalAudioSource(providerId: Long, channelId: Long): ExternalAudioSource? =
+        externalAudioSourceDao.get(providerId, channelId)?.let(::toExternalAudioSource)
+
+    override suspend fun prepareExternalAudioLibrary(providerId: Long): Int {
+        if (providerId <= 0L) return 0
+        val channels = channelDao.getByProviderSync(providerId)
+            .filter(::isExternalAudioEligible)
+            .filter { it.streamUrl.isNotBlank() }
+            .distinctBy { it.streamId.takeIf { id -> id > 0L } ?: it.id }
+        if (channels.isEmpty()) {
+            externalAudioSourceDao.deleteByProvider(providerId)
+            return 0
+        }
+        val semaphore = Semaphore(6)
+        val prepared = coroutineScope {
+            channels.map { entity ->
+                async(Dispatchers.IO) {
+                    semaphore.withPermit {
+                        val resolved = getStreamInfo(entity.toDomain(), preferStableUrl = true).getOrNull()
+                        resolved?.takeIf { it.url.isNotBlank() }?.let { info ->
+                            ExternalAudioSourceEntity(
+                                providerId = providerId,
+                                channelId = entity.id,
+                                streamId = entity.streamId,
+                                name = entity.name,
+                                logoUrl = entity.logoUrl,
+                                groupTitle = entity.groupTitle,
+                                sourceUrl = entity.streamUrl,
+                                resolvedUrl = info.url,
+                                headersJson = encodeHeaders(info.headers),
+                                userAgent = info.userAgent,
+                                expirationTime = info.expirationTime,
+                                containerExtension = info.containerExtension,
+                                preparedAt = System.currentTimeMillis()
+                            )
+                        }
+                    }
+                }
+            }.awaitAll().filterNotNull()
+        }
+        externalAudioSourceDao.upsertAll(prepared)
+        externalAudioSourceDao.deleteStale(providerId, channels.map { it.id })
+        Log.i(TAG, "External Audio library prepared: provider=$providerId eligible=${channels.size} resolved=${prepared.size}")
+        return prepared.size
+    }
+
     override suspend fun refreshChannels(providerId: Long): Result<Unit> =
         Result.success(Unit)
 
@@ -362,6 +420,43 @@ class ChannelRepositoryImpl @Inject constructor(
         Result.success(Unit)
     } catch (e: Exception) {
         Result.error("Failed to reset channel error count", e)
+    }
+
+    private fun toExternalAudioSource(entity: ExternalAudioSourceEntity): ExternalAudioSource =
+        ExternalAudioSource(
+            providerId = entity.providerId,
+            channelId = entity.channelId,
+            streamId = entity.streamId,
+            name = entity.name,
+            logoUrl = entity.logoUrl,
+            groupTitle = entity.groupTitle,
+            sourceUrl = entity.sourceUrl,
+            resolvedUrl = entity.resolvedUrl,
+            headers = decodeHeaders(entity.headersJson),
+            userAgent = entity.userAgent,
+            expirationTime = entity.expirationTime,
+            containerExtension = entity.containerExtension,
+            preparedAt = entity.preparedAt
+        )
+
+    private fun encodeHeaders(headers: Map<String, String>): String =
+        JSONObject().apply { headers.forEach { (key, value) -> put(key, value) } }.toString()
+
+    private fun decodeHeaders(raw: String): Map<String, String> = runCatching {
+        val json = JSONObject(raw)
+        json.keys().asSequence().associateWith { key -> json.optString(key) }
+    }.getOrDefault(emptyMap())
+
+    private fun isExternalAudioEligible(entity: ChannelEntity): Boolean {
+        val searchable = buildString {
+            append(entity.name).append(' ')
+            append(entity.groupTitle.orEmpty()).append(' ')
+            append(entity.categoryName.orEmpty()).append(' ')
+            append(entity.qualityOptionsJson.orEmpty())
+        }.lowercase()
+        val hasQuality = Regex("""(?:^|[\s._()\[\]-])(sd|hd)(?:$|[\s._()\[\]-])""").containsMatchIn(searchable)
+        if (!hasQuality) return false
+        return listOf("sport", "sports", "bein", "beinsports", "ssc", "alkass", "abu dhabi sport", "ad sport", "kora", "football", "soccer", "match", "arena", "eurosport", "espn", "sky sport", "super sport", "sport tv", "دوري", "رياضة", "رياضي", "كرة", "مباراة", "الكاس", "كأس", "بي ان", "بين سبورت").any(searchable::contains)
     }
 
     private fun observeChannels(
