@@ -1,6 +1,7 @@
 package com.streamvault.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.ColumnInfo
 import androidx.room.Index
 
 @Entity(
