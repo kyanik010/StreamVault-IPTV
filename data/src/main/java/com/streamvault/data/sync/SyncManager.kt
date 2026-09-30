@@ -609,6 +609,7 @@ class SyncManager @Inject constructor(
             preferencesRepository = preferencesRepository,
             syncMetadataRepository = syncMetadataRepository,
             providerSnapshotRepository = providerSnapshotRepository,
+            channelRepository = channelRepository,
             transactionRunner = transactionRunner,
             categoryDao = categoryDao,
             channelDao = channelDao,
