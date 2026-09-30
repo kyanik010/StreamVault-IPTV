@@ -8,6 +8,7 @@ import com.streamvault.data.local.dao.ChannelDao
 import com.streamvault.data.local.dao.FavoriteDao
 import com.streamvault.data.local.dao.ProviderSnapshotDao
 import com.streamvault.data.local.entity.CategoryEntity
+import com.streamvault.data.local.entity.ChannelEntity
 import com.streamvault.data.local.entity.ExternalAudioSourceEntity
 import com.streamvault.data.local.entity.ChannelBrowseEntity
 import com.streamvault.data.local.entity.CategoryCount
