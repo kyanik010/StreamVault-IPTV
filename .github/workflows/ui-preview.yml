@@ -1,0 +1,58 @@
+name: UI Preview
+
+on:
+  push:
+    branches:
+      - feature/trial-activation-system
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  activation-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Build debug APK
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleDebug --stacktrace
+
+      - name: Launch emulator and capture ActivationScreen
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: default
+          profile: pixel_2
+          emulator-boot-timeout: 900
+          disable-linux-hw-accel: false
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -no-metrics
+          script: |
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb shell am start -n com.streamvault.app/.benchmark.BackupPreviewBenchmarkActivity               --ez activation true
+            sleep 3
+            adb exec-out screencap -p > activation-preview-portrait.png
+
+            adb shell settings put system accelerometer_rotation 0
+            adb shell settings put system user_rotation 1
+            sleep 2
+            adb exec-out screencap -p > activation-preview-landscape.png
+
+      - name: Upload UI preview screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: activation-screen-preview
+          retention-days: 14
+          path: |
+            activation-preview-portrait.png
+            activation-preview-landscape.png
