@@ -63,7 +63,7 @@ class AudioSourceCatalogCache @Inject constructor(
 }
 
 private object AudioSourceCatalogPolicy {
-    private val qualityPattern = Regex("""(?:^|[\\s._()\\[\\]-])(sd|hd)(?:$|[\\s._()\\[\\]-])""")
+    private val qualityPattern = Regex("""(?:^|[\s._()\[\]-])(sd|hd)(?:$|[\s._()\[\]-])""")
     private val sportsKeywords = listOf(
         "sport", "sports", "bein", "beinsports", "ssc", "alkass", "al kass",
         "abu dhabi sport", "ad sport", "ad sports", "kora", "football", "soccer",
