@@ -312,15 +312,15 @@ internal class XtreamCatalogSyncExecutor(
             section = ContentType.LIVE,
             reason = "activated live catalog requires durable search-index backfill"
         )
-        // External Audio is derived from the already committed Live TV Room catalog.
-        // This is intentionally a local preparation step: no second Xtream download is made.
+        // External Audio is a required stage between the committed Live TV catalog and VOD/Series.
+        // The preparation is local: it resolves and persists the Live TV audio library once, while
+        // preserving valid cached rows and refreshing only expired/missing sources.
         progress(provider.id, onProgress, "جاري تجهيز مكتبة الصوتيات...")
-        runSuspendCatching {
-            channelRepository.prepareExternalAudioLibrary(provider.id)
-        }.onFailure { error ->
-            warnings += "External Audio library preparation failed; it will retry when needed."
-            Log.w(TAG, "External Audio library preparation failed for provider=${provider.id}", error)
-        }
+        val preparedExternalAudioCount = channelRepository.prepareExternalAudioLibrary(provider.id)
+        Log.i(
+            TAG,
+            "External Audio library ready: provider=${provider.id} prepared=$preparedExternalAudioCount live=$liveCount"
+        )
         emitProgress(
             provider.id,
             SyncProgress(
