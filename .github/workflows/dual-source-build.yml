@@ -1,4 +1,5 @@
 name: Dual Source Build
+# verification trigger
 
 on:
   push:
@@ -7,6 +8,7 @@ on:
       - eagle-x-aeriotv-migration
       - feature/external-audio-live
       - feature/trial-activation-system
+      - feature/external-audio-initial-sync
   workflow_dispatch:
 
 permissions:

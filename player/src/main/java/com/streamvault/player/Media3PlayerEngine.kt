@@ -198,7 +198,6 @@ class Media3PlayerEngine @Inject constructor(
             onExternalAudioReady = ::disableMainAudioForExternalReady,
             dataSourceFactoryProvider = dataSourceFactoryProvider,
             mediaSourceFactory = mediaSourceFactory,
-            renderersFactoryProvider = ::buildRenderersFactory,
             vodHttpProtocolModeProvider = { requestedVodHttpProtocolMode }
         )
     }
@@ -530,7 +529,7 @@ class Media3PlayerEngine @Inject constructor(
     override fun renewStreamUrl(streamInfo: StreamInfo) {
         if (ensureNotDisposed("renewStreamUrl")) return
         val player = exoPlayer ?: return
-        val playbackPlan = buildPlaybackPreparationPlan(
+        val playbackPlan = com.streamvault.player.playback.buildPlaybackPreparationPlan(
             streamInfo = streamInfo,
             preload = false,
             playbackStarted = { isEffectivelyPlaybackStarted() }
@@ -2793,9 +2792,12 @@ private class ExternalAudioController(
     private val onExternalAudioReady: () -> Unit,
     private val dataSourceFactoryProvider: PlayerDataSourceFactoryProvider,
     private val mediaSourceFactory: PlayerMediaSourceFactory,
-    private val renderersFactoryProvider: () -> DefaultRenderersFactory,
     private val vodHttpProtocolModeProvider: () -> VodHttpProtocolMode
 ) {
+    private companion object {
+        const val TAG = "Media3PlayerEngine.ExternalAudio"
+    }
+
     private val prefs = context.getSharedPreferences("streamvault_audio_source", Context.MODE_PRIVATE)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val handler = Handler(Looper.getMainLooper())
@@ -2866,15 +2868,8 @@ private class ExternalAudioController(
                     .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
                     .build()
             }
-            val external = ExoPlayer.Builder(context, renderersFactoryProvider())
+            val external = ExoPlayer.Builder(context)
                 .setTrackSelector(selector)
-                .setAudioAttributes(
-                    Media3AudioAttributes.Builder()
-                        .setUsage(C.USAGE_MEDIA)
-                        .setContentType(C.AUDIO_CONTENT_TYPE_UNKNOWN)
-                        .build(),
-                    false
-                )
                 .build()
                 .also { p ->
                     externalPlayer = p
@@ -2911,11 +2906,11 @@ private class ExternalAudioController(
 
                         override fun onPlayerError(error: PlaybackException) {
                             if (generation != sessionGeneration) return
-                            val httpError = generateSequence(error) { it.cause }
+                            val httpError = generateSequence<Throwable>(error) { it.cause }
                                 .firstOrNull { cause ->
                                     cause is androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException
                                 } as? androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException
-                            val causeTypes = generateSequence(error) { it.cause }
+                            val causeTypes = generateSequence<Throwable>(error) { it.cause }
                                 .take(6)
                                 .joinToString(" <- ") { cause ->
                                     cause::class.java.simpleName.ifBlank { cause::class.java.name }

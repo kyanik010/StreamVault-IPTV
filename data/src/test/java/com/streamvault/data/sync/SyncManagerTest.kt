@@ -57,6 +57,7 @@ import com.streamvault.domain.model.StalkerTransportMode
 import com.streamvault.domain.model.SyncMetadata
 import com.streamvault.domain.repository.EpgRepository
 import com.streamvault.domain.repository.EpgSourceRepository
+import com.streamvault.domain.repository.ChannelRepository
 import com.streamvault.data.remote.stalker.StalkerCategoryRecord
 import com.streamvault.data.remote.stalker.StalkerItemRecord
 import com.streamvault.data.remote.stalker.StalkerPagedItems
@@ -281,6 +282,7 @@ class SyncManagerTest {
     private val vodCategoryHydrationDao: VodCategoryHydrationDao = mock()
     private val vodCatalogEntryDao: VodCatalogEntryDao = mock()
     private val epgRepo: EpgRepository = mock()
+    private val channelRepository: ChannelRepository = mock()
     private val epgSourceRepo: EpgSourceRepository = mock()
     private val preferencesRepo: PreferencesRepository = mock()
     private val stalkerApiService: StalkerApiService = mock()
@@ -319,6 +321,7 @@ class SyncManagerTest {
             xtreamContentIndexDao,
             xtreamIndexJobDao,
             xtreamLiveOnboardingDao,
+            channelRepository,
             epgRepo,
             epgSourceRepo,
             preferencesRepo,
@@ -344,6 +347,7 @@ class SyncManagerTest {
         org.mockito.kotlin.whenever(preferencesRepo.getHiddenCategoryIds(any(), any())).thenReturn(flowOf(emptySet()))
         runBlocking {
             org.mockito.kotlin.whenever(categoryDao.getByProviderAndTypeSync(any(), any())).thenReturn(emptyList())
+            org.mockito.kotlin.whenever(channelRepository.prepareExternalAudioLibrary(any())).thenReturn(0)
             org.mockito.kotlin.whenever(channelDao.getCount(any())).thenReturn(flowOf(0))
             org.mockito.kotlin.whenever(channelDao.getByProviderSync(any())).thenReturn(emptyList())
             org.mockito.kotlin.whenever(movieDao.getCount(any())).thenReturn(flowOf(0))
@@ -524,6 +528,7 @@ class SyncManagerTest {
         credentialCrypto = credentialCrypto,
         syncMetadataRepository = syncMetadataRepo,
         transactionRunner = transactionRunner,
+        channelRepository = channelRepository,
         preferencesRepository = preferencesRepo,
         syncProgressBus = SyncProgressBus(),
         stalkerRequestCoordinator = com.streamvault.data.remote.stalker.StalkerRequestCoordinator(),

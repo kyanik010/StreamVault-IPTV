@@ -238,6 +238,29 @@ class ProviderRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun hasMatchingXtreamProvider(
+        serverUrl: String,
+        username: String,
+        password: String,
+    ): Boolean {
+        val normalizedServerUrl = ProviderInputSanitizer.normalizeUrl(serverUrl).trimEnd('/')
+        val normalizedUsername = ProviderInputSanitizer.normalizeUsername(username)
+        if (normalizedServerUrl.isBlank() || normalizedUsername.isBlank() || password.isBlank()) return false
+
+        for (entity in providerDao.getAllSync()) {
+            val snapshot = providerCapabilityResolver.snapshot(entity.id) ?: continue
+            if (snapshot.provider.type != ProviderType.XTREAM_CODES) continue
+            val config = snapshot.configuration as? XtreamConfig ?: continue
+            if (config.serverUrl.trimEnd('/') == normalizedServerUrl &&
+                config.username == normalizedUsername &&
+                config.password == password
+            ) {
+                return true
+            }
+        }
+        return false
+    }
+
     override suspend fun getAllProviderCredentials(): List<ProviderCredentials> {
         return providerDao.getAllSync()
             .mapNotNull { entity -> loadLegacyProvider(entity.id) }

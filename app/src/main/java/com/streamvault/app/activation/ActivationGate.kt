@@ -56,7 +56,18 @@ fun ActivationGate(
 ) {
     val context = LocalContext.current
     val activationId = remember { readActivationId(context) }
-    var state by remember { mutableStateOf(ActivationState.CHECKING) }
+    val activationPrefs = remember {
+        context.getSharedPreferences("streamvault_activation_state", Context.MODE_PRIVATE)
+    }
+    var state by remember {
+        mutableStateOf(
+            if (activationPrefs.getBoolean("last_active", false)) {
+                ActivationState.ACTIVE
+            } else {
+                ActivationState.CHECKING
+            }
+        )
+    }
     var expiresAt by remember { mutableStateOf<String?>(null) }
     var errorText by remember { mutableStateOf<String?>(null) }
     var showForm by remember { mutableStateOf(false) }
@@ -77,6 +88,7 @@ fun ActivationGate(
                 }
 
                 if (!response.activated) {
+                    activationPrefs.edit().putBoolean("last_active", false).apply()
                     showForm = false
                     state = when (response.status) {
                         "expired" -> ActivationState.EXPIRED
@@ -91,6 +103,7 @@ fun ActivationGate(
                     val hasProvider = providerRepository.getProviders().first().any {
                         it.type == ProviderType.XTREAM_CODES
                     }
+                    activationPrefs.edit().putBoolean("last_active", true).apply()
                     showForm = false
                     return@onSuccess
                 }
@@ -105,13 +118,14 @@ fun ActivationGate(
                 configStore.set(config)
                 state = ActivationState.ACTIVATING
                 val video = config.video
-                val existing = providerRepository.getProviders().first().firstOrNull {
-                    it.type == ProviderType.XTREAM_CODES &&
-                        it.serverUrl.trimEnd('/') == video.serverUrl.trimEnd('/') &&
-                        it.username == video.username &&
-                        it.password == video.password
+                val existing = withContext(Dispatchers.IO) {
+                    providerRepository.hasMatchingXtreamProvider(
+                        serverUrl = video.serverUrl,
+                        username = video.username,
+                        password = video.password
+                    )
                 }
-                if (existing == null) {
+                if (!existing) {
                     val addResult = withContext(Dispatchers.IO) {
                         validateAndAddProvider.loginXtream(
                             XtreamProviderSetupCommand(
@@ -134,6 +148,7 @@ fun ActivationGate(
                     context.getSharedPreferences("streamvault_audio_source", Context.MODE_PRIVATE)
                         .edit().putString("m3u_url", audioUrl).apply()
                 }
+                activationPrefs.edit().putBoolean("last_active", true).apply()
                 showForm = false
                 state = ActivationState.ACTIVE
             }
@@ -199,7 +214,8 @@ fun ActivationGate(
     LaunchedEffect(activationId) {
         check()
         while (isActive) {
-            delay(60_000)
+            // Activation is not a live catalog poll. Revalidate at most once per day.
+            delay(24 * 60 * 60 * 1000L)
             check()
         }
     }

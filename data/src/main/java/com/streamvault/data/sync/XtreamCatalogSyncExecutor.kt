@@ -21,6 +21,7 @@ import com.streamvault.domain.model.ProviderType
 import com.streamvault.domain.model.SyncMetadata
 import com.streamvault.domain.model.VodSyncMode
 import com.streamvault.domain.repository.SyncMetadataRepository
+import com.streamvault.domain.repository.ChannelRepository
 import com.streamvault.domain.sync.Section
 import com.streamvault.domain.sync.SyncProgress
 import kotlinx.coroutines.flow.first
@@ -49,6 +50,7 @@ internal class XtreamCatalogSyncExecutor(
     private val applicationContext: Context,
     private val preferencesRepository: PreferencesRepository,
     private val syncMetadataRepository: SyncMetadataRepository,
+    private val channelRepository: ChannelRepository,
     private val channelDao: ChannelDao,
     private val categoryDao: CategoryDao,
     private val xtreamLiveOnboardingDao: XtreamLiveOnboardingDao,
@@ -310,9 +312,15 @@ internal class XtreamCatalogSyncExecutor(
             section = ContentType.LIVE,
             reason = "activated live catalog requires durable search-index backfill"
         )
-        // External Audio is derived from the already committed Live TV Room catalog.
-        // This is intentionally a local preparation step: no second Xtream download is made.
-        progress(provider.id, onProgress, "جاري جلب المكتبه الصوتيه")
+        // External Audio is a required stage between the committed Live TV catalog and VOD/Series.
+        // The preparation is local: it resolves and persists the Live TV audio library once, while
+        // preserving valid cached rows and refreshing only expired/missing sources.
+        progress(provider.id, onProgress, "جاري تجهيز مكتبة الصوتيات...")
+        val preparedExternalAudioCount = channelRepository.prepareExternalAudioLibrary(provider.id)
+        Log.i(
+            TAG,
+            "External Audio library ready: provider=${provider.id} prepared=$preparedExternalAudioCount live=$liveCount"
+        )
         emitProgress(
             provider.id,
             SyncProgress(

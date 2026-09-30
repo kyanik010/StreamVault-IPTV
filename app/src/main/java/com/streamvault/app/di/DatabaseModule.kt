@@ -54,6 +54,7 @@ object DatabaseModule {
     @Provides fun provideProviderSnapshotDao(db: StreamVaultDatabase): ProviderSnapshotDao = db.providerSnapshotDao()
     @Provides fun provideChannelDao(db: StreamVaultDatabase): ChannelDao = db.channelDao()
     @Provides fun provideChannelPreferenceDao(db: StreamVaultDatabase): ChannelPreferenceDao = db.channelPreferenceDao()
+    @Provides fun provideExternalAudioSourceDao(db: StreamVaultDatabase): ExternalAudioSourceDao = db.externalAudioSourceDao()
     @Provides fun provideMovieDao(db: StreamVaultDatabase): MovieDao = db.movieDao()
     @Provides fun provideSeriesDao(db: StreamVaultDatabase): SeriesDao = db.seriesDao()
     @Provides fun provideEpisodeDao(db: StreamVaultDatabase): EpisodeDao = db.episodeDao()

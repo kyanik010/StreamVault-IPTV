@@ -6,6 +6,7 @@ import com.streamvault.data.local.dao.CategoryDao
 import com.streamvault.data.local.dao.ChannelDao
 import com.streamvault.data.local.dao.FavoriteDao
 import com.streamvault.data.local.dao.ProviderSnapshotDao
+import com.streamvault.data.local.dao.ExternalAudioSourceDao
 import com.streamvault.data.local.entity.CategoryCount
 import com.streamvault.data.local.entity.ChannelBrowseEntity
 import com.streamvault.data.local.entity.CategoryEntity
@@ -51,6 +52,7 @@ class ChannelRepositoryImplTest {
     private val xtreamStreamUrlResolver: XtreamStreamUrlResolver = mock()
     private val providerSnapshotDao: ProviderSnapshotDao = mock()
     private val providerConfigurationCodec: ProviderConfigurationCodec = mock()
+    private val externalAudioSourceDao: ExternalAudioSourceDao = mock()
 
     @Before
     fun setUpDefaults() {
@@ -665,7 +667,8 @@ class ChannelRepositoryImplTest {
         parentalControlManager = parentalControlManager,
         xtreamStreamUrlResolver = xtreamStreamUrlResolver,
         providerSnapshotDao = providerSnapshotDao,
-        providerConfigurationCodec = providerConfigurationCodec
+        providerConfigurationCodec = providerConfigurationCodec,
+        externalAudioSourceDao = externalAudioSourceDao
     )
 
     private fun categoryEntity(

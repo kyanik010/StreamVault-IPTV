@@ -68,6 +68,13 @@ interface ProviderRepository {
      */
     suspend fun getAllProviderCredentials(): List<ProviderCredentials>
 
+    /** Returns true when an Xtream provider with the exact server/user/password already exists. */
+    suspend fun hasMatchingXtreamProvider(
+        serverUrl: String,
+        username: String,
+        password: String,
+    ): Boolean
+
     /**
      * Applies a cleartext password to the provider matched by
      * `(serverUrl, username)`. Encryption happens inside the `:data`
