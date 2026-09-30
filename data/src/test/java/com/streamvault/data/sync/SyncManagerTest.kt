@@ -321,6 +321,7 @@ class SyncManagerTest {
             xtreamContentIndexDao,
             xtreamIndexJobDao,
             xtreamLiveOnboardingDao,
+            channelRepository,
             epgRepo,
             epgSourceRepo,
             preferencesRepo,
@@ -346,6 +347,7 @@ class SyncManagerTest {
         org.mockito.kotlin.whenever(preferencesRepo.getHiddenCategoryIds(any(), any())).thenReturn(flowOf(emptySet()))
         runBlocking {
             org.mockito.kotlin.whenever(categoryDao.getByProviderAndTypeSync(any(), any())).thenReturn(emptyList())
+            org.mockito.kotlin.whenever(channelRepository.prepareExternalAudioLibrary(any())).thenReturn(0)
             org.mockito.kotlin.whenever(channelDao.getCount(any())).thenReturn(flowOf(0))
             org.mockito.kotlin.whenever(channelDao.getByProviderSync(any())).thenReturn(emptyList())
             org.mockito.kotlin.whenever(movieDao.getCount(any())).thenReturn(flowOf(0))
