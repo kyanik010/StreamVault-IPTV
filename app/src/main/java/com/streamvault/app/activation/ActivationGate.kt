@@ -271,18 +271,6 @@ private val PassText = Color(0xFFEEF1F7)
 private val PassMuted = Color(0xFF94A3BF)
 private val PassDash = Color(0xFF3A4A6A)
 
-// ===== Activation screen UI: Eagle X2 "pass" design. UI only, no activation logic in this section. =====
-
-private val PassBg = Color(0xFF0B0F1A)
-private val PassMid = Color(0xFF0E1422)
-private val PassLight = Color(0xFF1B273F)
-private val PassCtaTop = Color(0xFF2A3A5E)
-private val PassBrass = Color(0xFFC8A45A)
-private val PassBrassSoft = Color(0xFFE6C982)
-private val PassText = Color(0xFFEEF1F7)
-private val PassMuted = Color(0xFF94A3BF)
-private val PassDash = Color(0xFF3A4A6A)
-
 @Composable
 internal fun ActivationScreen(
     activationId: String,
