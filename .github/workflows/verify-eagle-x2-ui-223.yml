@@ -1,0 +1,32 @@
+name: Verify Eagle X2 UI #223
+
+on:
+  push:
+    branches:
+      - feature/eagle-x2-ui-on-223
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Copy exact Eagle X assets from AerioTV
+        run: |
+          set -euo pipefail
+          mkdir -p app/src/main/res/drawable-nodpi
+          base="https://raw.githubusercontent.com/kyanik010/AerioTV-Android/HEAD/app/src/main/res/drawable-nodpi"
+          for name in eagle_x_activation_logo.png eagle_x_support_qr.png eagle_x_launcher.png; do
+            curl --fail --location --retry 3 "$base/$name" -o "app/src/main/res/drawable-nodpi/$name"
+          done
+      - name: Unit tests
+        run: ./gradlew --console=plain testDebugUnitTest
+      - name: Build debug APK
+        run: ./gradlew --console=plain :app:assembleDebug
