@@ -25,14 +25,7 @@ class AudioSourceCatalogCache @Inject constructor(
         if (providerId <= 0L) return emptyList()
         cache[providerId]?.let { return it }
 
-        var prepared = channelRepository.getExternalAudioSources(providerId)
-        if (prepared.isEmpty()) {
-            // One-time compatibility/backfill for subscriptions created before the persistent
-            // library existed. New subscriptions are prepared during initial sync.
-            channelRepository.prepareExternalAudioLibrary(providerId)
-            prepared = channelRepository.getExternalAudioSources(providerId)
-        }
-
+        val prepared = channelRepository.getExternalAudioSources(providerId)
         val preparedByChannel = prepared.associateBy { it.channelId }
         preparedCache[providerId] = preparedByChannel
 
