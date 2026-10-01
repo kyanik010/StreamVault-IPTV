@@ -26,6 +26,7 @@ import com.streamvault.domain.model.Category
 import com.streamvault.domain.model.Channel
 import com.streamvault.domain.model.ContentType
 import com.streamvault.domain.model.LegacyProvider as Provider
+import com.streamvault.domain.model.ProviderEpgSyncMode
 import com.streamvault.domain.model.Result
 import com.streamvault.domain.model.StalkerCatalogMode
 import com.streamvault.domain.model.SyncMetadata
@@ -336,9 +337,23 @@ internal class StalkerCatalogSyncExecutor(
                 reason = "bootstrap catalog is committed; durable full provider sync is queued",
                 force = true
             )
+        } else when (provider.epgSyncMode) {
+            ProviderEpgSyncMode.UPFRONT -> warnings += syncProviderEpg(
+                provider,
+                metadata,
+                now,
+                force,
+                onProgress
+            ).warnings
+            ProviderEpgSyncMode.BACKGROUND -> {
+                continuationWork += SyncContinuation(
+                    operation = SyncContinuationOperation.REFRESH_GUIDE,
+                    reason = "guide refresh was handed off to background work",
+                    force = force
+                )
+            }
+            ProviderEpgSyncMode.SKIP -> Unit
         }
-        // EPG is intentionally excluded from the initial catalog sync. Live TV and the
-        // external audio library are prepared before VOD/Series indexing continues in background.
         readinessTracker.ready(provider.id, warnings.size)
         return SyncOutcome(
             partial = warnings.isNotEmpty(),
