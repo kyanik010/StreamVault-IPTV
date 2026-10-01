@@ -236,7 +236,7 @@ fun ActivationGate(
 
         // Do not contact the activation server on every app restart.
         // A successful/failed automatic check is cached for 24 hours.
-        if (!lastActive || now - lastCheckAt >= revalidationWindowMs) {
+        if (now - lastCheckAt >= revalidationWindowMs) {
             check()
         }
 
