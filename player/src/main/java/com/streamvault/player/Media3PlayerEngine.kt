@@ -2796,6 +2796,9 @@ private class ExternalAudioController(
     private val renderersFactoryProvider: () -> DefaultRenderersFactory,
     private val vodHttpProtocolModeProvider: () -> VodHttpProtocolMode
 ) {
+    companion object {
+        private const val TAG = "ExternalAudioController"
+    }
     private val prefs = context.getSharedPreferences("streamvault_audio_source", Context.MODE_PRIVATE)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val handler = Handler(Looper.getMainLooper())
@@ -2846,19 +2849,13 @@ private class ExternalAudioController(
             player?.release()
 
             var externalPlayer: ExoPlayer? = null
-            val playbackPlan = buildPlaybackPreparationPlan(
-                streamInfo = streamInfo,
-                preload = false,
-                fastRetryOnTransientFailures = { true },
-                playbackStarted = { externalPlayer?.isPlaying == true }
-            )
-            val mediaSource = mediaSourceFactory.create(
-                streamInfo = streamInfo,
-                resolvedStreamType = playbackPlan.resolvedStreamType,
-                retryPolicy = playbackPlan.retryPolicy,
-                vodHttpProtocolMode = vodHttpProtocolModeProvider(),
-                preload = false
-            ).second
+            // Keep external audio independent from the main video player.
+            val dataSource = DefaultHttpDataSource.Factory()
+                .setUserAgent("StreamVault/Audio")
+                .setConnectTimeoutMs(15_000)
+                .setReadTimeoutMs(30_000)
+            val mediaSource = DefaultMediaSourceFactory(dataSource)
+                .createMediaSource(MediaItem.fromUri(streamInfo.url))
 
             val selector = DefaultTrackSelector(context).apply {
                 parameters = buildUponParameters()
@@ -2891,7 +2888,7 @@ private class ExternalAudioController(
                                     if (!hasAudioTrack) {
                                         Log.e(
                                             TAG,
-                                            "external-audio ready-without-audio streamType=${playbackPlan.resolvedStreamType}"
+                                            "external-audio ready-without-audio url=${streamInfo.url}"
                                         )
                                         stopForFailure(generation)
                                         return
@@ -2911,15 +2908,18 @@ private class ExternalAudioController(
 
                         override fun onPlayerError(error: PlaybackException) {
                             if (generation != sessionGeneration) return
-                            val httpError = generateSequence(error) { it.cause }
-                                .firstOrNull { cause ->
-                                    cause is androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException
-                                } as? androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException
-                            val causeTypes = generateSequence(error) { it.cause }
-                                .take(6)
-                                .joinToString(" <- ") { cause ->
-                                    cause::class.java.simpleName.ifBlank { cause::class.java.name }
+                            var cursor: Throwable? = error
+                            var httpError: androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException? = null
+                            val causeNames = mutableListOf<String>()
+                            repeat(6) {
+                                val cause = cursor ?: return@repeat
+                                causeNames += cause::class.java.simpleName.ifBlank { cause::class.java.name }
+                                if (httpError == null && cause is androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException) {
+                                    httpError = cause
                                 }
+                                cursor = cause.cause
+                            }
+                            val causeTypes = causeNames.joinToString(" <- ")
                             Log.e(
                                 TAG,
                                 "external-audio playback failed code=${error.errorCodeName} " +
