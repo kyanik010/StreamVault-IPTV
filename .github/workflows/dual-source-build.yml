@@ -10,6 +10,7 @@ on:
       - feature/trial-activation-system
       - feature/external-audio-initial-sync
       - feature/eagle-x2-ui-on-223
+      - feature/eagle-x2-final-fixes
   workflow_dispatch:
 
 permissions:
