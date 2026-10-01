@@ -105,7 +105,12 @@ internal fun buildDestinationItems(
     configured: List<AppTopLevelDestination>,
     layout: CatalogLayout
 ): List<AppDestinationItem> {
-    if (layout == CatalogLayout.SPLIT) return configured.map { it.toDestinationItem() }
+    if (layout == CatalogLayout.SPLIT) {
+        return configured
+            .map { if (it == AppTopLevelDestination.HOME) AppTopLevelDestination.AUDIO else it }
+            .distinct()
+            .map { it.toDestinationItem() }
+    }
 
     var insertedVod = false
     return buildList {
