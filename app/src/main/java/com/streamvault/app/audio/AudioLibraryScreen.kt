@@ -60,7 +60,12 @@ fun AudioLibraryScreen(
     var selectedId by remember { mutableStateOf<Long?>(null) }
     var isPlaying by remember { mutableStateOf(false) }
 
-    val player = remember(context) {
+    val httpFactory = remember(context) {
+        DefaultHttpDataSource.Factory()
+            .setUserAgent("StreamVault/Audio")
+    }
+
+    val player = remember(context, httpFactory) {
         val selector = DefaultTrackSelector(context).apply {
             setParameters(
                 buildUponParameters()
@@ -68,8 +73,6 @@ fun AudioLibraryScreen(
                     .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
             )
         }
-        val httpFactory = DefaultHttpDataSource.Factory()
-            .setUserAgent("StreamVault/Audio")
         ExoPlayer.Builder(context)
             .setTrackSelector(selector)
             .setMediaSourceFactory(DefaultMediaSourceFactory(httpFactory))
@@ -100,6 +103,8 @@ fun AudioLibraryScreen(
 
     fun play(source: ExternalAudioSource) {
         if (source.isExpired()) return
+        httpFactory.setDefaultRequestProperties(source.headers)
+        source.userAgent?.takeIf { it.isNotBlank() }?.let(httpFactory::setUserAgent)
         val mediaItem = MediaItem.Builder()
             .setMediaId(source.channelId.toString())
             .setUri(source.resolvedUrl)
