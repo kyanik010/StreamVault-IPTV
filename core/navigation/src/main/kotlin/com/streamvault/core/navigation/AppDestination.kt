@@ -4,6 +4,7 @@ import java.io.Serializable
 
 sealed interface AppDestination : Serializable {
     data object Welcome : AppDestination
+    data object Audio : AppDestination
     data object Home : AppDestination
     data class LiveTv(val categoryId: Long? = null) : AppDestination
     data object Movies : AppDestination
