@@ -2845,10 +2845,13 @@ private class ExternalAudioController(
 
         handler.post {
             if (generation != sessionGeneration) return@post
-            player?.release()
 
             var externalPlayer: ExoPlayer? = null
-            val playbackPlan = buildPlaybackPreparationPlan(
+            try {
+                player?.release()
+                player = null
+
+                val playbackPlan = buildPlaybackPreparationPlan(
                 streamInfo = streamInfo,
                 preload = false,
                 fastRetryOnTransientFailures = { true },
@@ -2928,7 +2931,20 @@ private class ExternalAudioController(
                     p.prepare()
                     p.playWhenReady = videoIsPlayingProvider()
                 }
-            player = external
+                player = external
+            } catch (error: Exception) {
+                Log.e(
+                    TAG,
+                    "external-audio setup failed without tearing down main playback: " +
+                        "${error::class.java.simpleName}: ${error.message}",
+                    error
+                )
+                runCatching { externalPlayer?.release() }
+                externalPlayer = null
+                if (generation == sessionGeneration) {
+                    stopForFailure(generation)
+                }
+            }
         }
 
         _selected.value = channel
