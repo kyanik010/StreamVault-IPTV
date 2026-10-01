@@ -4,6 +4,7 @@
 
     
     <string name="nav_home">Home</string>
+    <string name="nav_audio">Audio</string>
     <string name="nav_live_tv">Live TV</string>
     <string name="nav_movies">Movies</string>
     <string name="nav_series">Series</string>
