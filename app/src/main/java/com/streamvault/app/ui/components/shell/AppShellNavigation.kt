@@ -107,7 +107,6 @@ internal fun buildDestinationItems(
 ): List<AppDestinationItem> {
     if (layout == CatalogLayout.SPLIT) {
         return configured
-            .map { if (it == AppTopLevelDestination.HOME) AppTopLevelDestination.AUDIO else it }
             .distinct()
             .map { it.toDestinationItem() }
     }
