@@ -34,7 +34,9 @@ enum class AppTopLevelDestination(
 
         fun normalizeForStorage(destinations: List<AppTopLevelDestination>): List<AppTopLevelDestination> {
             val unique = linkedSetOf<AppTopLevelDestination>()
-            destinations.forEach(unique::add)
+            destinations.forEach { destination ->
+                unique += if (destination == HOME) AUDIO else destination
+            }
             unique += SETTINGS
             return unique.toList()
         }
