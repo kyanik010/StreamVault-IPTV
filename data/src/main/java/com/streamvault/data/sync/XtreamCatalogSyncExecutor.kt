@@ -16,7 +16,6 @@ import com.streamvault.data.util.runSuspendCatching
 import com.streamvault.domain.model.Channel
 import com.streamvault.domain.model.ContentType
 import com.streamvault.domain.model.LegacyProvider as Provider
-import com.streamvault.domain.model.ProviderEpgSyncMode
 import com.streamvault.domain.model.ProviderType
 import com.streamvault.domain.model.SyncMetadata
 import com.streamvault.domain.model.VodSyncMode
@@ -432,23 +431,8 @@ internal class XtreamCatalogSyncExecutor(
             movieSyncMode = VodSyncMode.UNKNOWN
         )
         syncMetadataRepository.updateMetadata(metadata)
-        val epgState = if (provider.epgSyncMode == ProviderEpgSyncMode.SKIP) "IDLE" else "QUEUED"
-        updateIndexJob(
-            XtreamIndexJobUpdate(
-                providerId = provider.id,
-                section = "EPG",
-                state = epgState,
-                now = now,
-                lastAttemptAt = if (epgState == "QUEUED") now else 0L
-            )
-        )
-        if (provider.epgSyncMode != ProviderEpgSyncMode.SKIP) {
-            continuationWork += SyncContinuation(
-                operation = SyncContinuationOperation.REFRESH_GUIDE,
-                reason = "guide refresh must be handed off to background work",
-                force = force
-            )
-        }
+        // EPG is intentionally excluded from the initial catalog sync. Live TV and the
+        // external audio library are prepared first; VOD/Series indexing continues in background.
         if (force) {
             Log.i(TAG, "Xtream index-first sync completed for provider ${provider.id}; VOD and series index jobs are queued.")
         }
