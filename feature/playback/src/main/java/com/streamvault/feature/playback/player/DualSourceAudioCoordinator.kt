@@ -99,14 +99,12 @@ class DualSourceAudioCoordinator @Inject constructor(
         engine = videoEngine
         if (channel.streamUrl.isBlank()) return Result.error("رابط مصدر الصوت غير صالح.")
 
-        var prepared = audioSourceCatalogCache.getPrepared(currentProviderId, channel.id)
-        if (prepared?.isExpired() == true) {
-            prepared = audioSourceCatalogCache.refreshPrepared(currentProviderId, channel.id)
-        }
+        val prepared = audioSourceCatalogCache.getPrepared(currentProviderId, channel.id)
         if (prepared == null) {
-            // Compatibility path for old subscriptions whose library has not been prepared yet.
-            audioSourceCatalogCache.warm(currentProviderId)
-            prepared = audioSourceCatalogCache.getPrepared(currentProviderId, channel.id)
+            return Result.error("مصدر الصوت غير موجود في مكتبة Audio الجاهزة.")
+        }
+        if (prepared.isExpired()) {
+            return Result.error("مصدر الصوت منتهي. ستتم إعادة تجهيزه مع مزامنة الاشتراك.")
         }
 
         val resolvedStreamInfo = prepared?.let {
