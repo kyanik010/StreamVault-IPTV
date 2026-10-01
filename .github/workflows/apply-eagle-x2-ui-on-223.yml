@@ -1,0 +1,50 @@
+name: Apply Eagle X2 UI on #223 baseline
+
+on:
+  push:
+    branches:
+      - feature/eagle-x2-ui-on-223
+
+permissions:
+  contents: write
+
+jobs:
+  apply-ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply approved UI only
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE="app/src/main/java/com/streamvault/app/activation/ActivationGate.kt"
+          DESIGN_COMMIT="b6b300206cfb0428cdb9a3d385279a31de46fba2"
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+          p=Path("app/src/main/java/com/streamvault/app/activation/ActivationGate.kt")
+          current=p.read_text(encoding="utf-8")
+          design=subprocess.check_output(["git","show","b6b300206cfb0428cdb9a3d385279a31de46fba2:app/src/main/java/com/streamvault/app/activation/ActivationGate.kt"]).decode()
+          enum="internal enum class ActivationState"
+          current_prefix=current.split(enum,1)[0]
+          design_prefix=design.split(enum,1)[0]
+          current=design_prefix+current[len(current_prefix):]
+          start='// ===== Activation screen UI: Eagle X2 "pass" design. UI only, no activation logic in this section. ====='
+          end='// ===== End of UI section. Everything below is unchanged activation / trial / device-id logic. ====='
+          ui=start+design.split(start,1)[1].split(end,1)[0]+end
+          screen='@Composable\ninternal fun ActivationScreen('
+          response='private data class ActivationResponse('
+          current=current.split(screen,1)[0]+ui+'\n\n'+response+current.split(response,1)[1]
+          p.write_text(current,encoding="utf-8")
+          PY
+          mkdir -p app/src/main/res/drawable
+          git show "$DESIGN_COMMIT:app/src/main/res/drawable/eagle_x_activation_logo.png" > app/src/main/res/drawable/eagle_x_activation_logo.png
+          git show "$DESIGN_COMMIT:app/src/main/res/drawable/eagle_x_support_qr.png" > app/src/main/res/drawable/eagle_x_support_qr.png
+          rm -f .github/workflows/apply-eagle-x2-ui-on-223.yml .github/eagle-x2-ui-223-trigger.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(activation): apply Eagle X2 pass UI to #223 baseline"
+          git push --force origin HEAD:feature/eagle-x2-ui-on-223
