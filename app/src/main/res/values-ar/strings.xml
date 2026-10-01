@@ -2,6 +2,7 @@
 <resources>
     <string name="app_name">StreamVault</string>
     <string name="nav_home">الرئيسية</string>
+    <string name="nav_audio">Audio</string>
     <string name="nav_live_tv">البث المباشر</string>
     <string name="nav_movies">الأفلام</string>
     <string name="nav_series">المسلسلات</string>
