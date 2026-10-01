@@ -97,6 +97,7 @@ fun ActivationGate(
 
         runCatching { withContext(Dispatchers.IO) { requestActivation(activationId) } }
             .onSuccess { response ->
+                activationPrefs.edit().putLong("last_check_at", System.currentTimeMillis()).apply()
                 expiresAt = response.expiresAt
                 if (response.activated) {
                     retryPendingRegistration(context, activationId)
@@ -168,6 +169,7 @@ fun ActivationGate(
                 state = ActivationState.ACTIVE
             }
             .onFailure {
+                activationPrefs.edit().putLong("last_check_at", System.currentTimeMillis()).apply()
                 if (previousState != ActivationState.TRIAL && previousState != ActivationState.ACTIVE) {
                     state = ActivationState.ERROR
                     errorText = "تعذر الاتصال بخادم التفعيل"
@@ -227,10 +229,19 @@ fun ActivationGate(
     }
 
     LaunchedEffect(activationId) {
-        check()
+        val now = System.currentTimeMillis()
+        val lastCheckAt = activationPrefs.getLong("last_check_at", 0L)
+        val lastActive = activationPrefs.getBoolean("last_active", false)
+        val revalidationWindowMs = 24L * 60L * 60L * 1000L
+
+        // Do not contact the activation server on every app restart.
+        // A successful/failed automatic check is cached for 24 hours.
+        if (!lastActive || now - lastCheckAt >= revalidationWindowMs) {
+            check()
+        }
+
         while (isActive) {
-            // Activation is not a live catalog poll. Revalidate at most once per day.
-            delay(24 * 60 * 60 * 1000L)
+            delay(revalidationWindowMs)
             check()
         }
     }
