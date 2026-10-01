@@ -236,6 +236,7 @@ private fun NavigationVisibilityToggle(
 
 @Composable
 private fun AppTopLevelDestination.labelResId(): Int = when (this) {
+    AppTopLevelDestination.AUDIO -> R.string.nav_audio
     AppTopLevelDestination.HOME -> R.string.nav_home
     AppTopLevelDestination.LIVE_TV -> R.string.nav_live_tv
     AppTopLevelDestination.MOVIES -> R.string.nav_movies
