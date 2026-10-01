@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
 import com.streamvault.app.navigation.graph.registerLiveGraph
 import com.streamvault.app.ui.components.shell.AppNavigationChrome
 import com.streamvault.app.ui.components.shell.AppScreenScaffold
@@ -29,6 +30,7 @@ import com.streamvault.feature.catalog.api.CatalogPlatformHost
 import com.streamvault.feature.catalog.api.CatalogScaffoldContent
 import com.streamvault.feature.catalog.navigation.registerCatalogGraph
 import com.streamvault.feature.settings.presentation.DashboardShelfCustomizationDialog
+import com.streamvault.app.audio.AudioLibraryScreen
 import com.streamvault.domain.model.ContentType
 import com.streamvault.feature.system.api.SystemScaffoldContent
 import com.streamvault.feature.system.navigation.SystemRoutePatterns
@@ -81,7 +83,10 @@ internal fun AppNavHost(
             }
         )
         registerLiveGraph(actions, onTopLevelDestinationRequested)
-        registerCatalogGraph(
+        composable(AppRoutePatterns.AUDIO) {
+            AudioLibraryScreen()
+        }
+                registerCatalogGraph(
             actions = actions,
             platformHost = catalogPlatformHost,
             scaffold = appCatalogScaffold(onTopLevelDestinationRequested),
