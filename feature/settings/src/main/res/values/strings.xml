@@ -539,6 +539,7 @@
     <string name="settings_speed_test_ethernet_applied">Applied the recommended Ethernet quality cap.</string>
     <string name="settings_history_cleared">Watch history and recents cleared</string>
     <string name="settings_pin_changed">PIN saved successfully</string>
+    <string name="nav_audio">Audio</string>
     <string name="nav_home">Home</string>
     <string name="settings_startup_first_favorite_live">Play first favorite channel</string>
     <string name="settings_startup_last_watched_live">Play last watched live channel</string>
