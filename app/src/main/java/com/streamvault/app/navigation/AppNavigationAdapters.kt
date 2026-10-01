@@ -18,6 +18,7 @@ internal fun AppLandingDestination.toAppRoute(): String = when (this) {
 
 internal fun AppTopLevelDestination.toAppRoute(): String = when (this) {
     AppTopLevelDestination.HOME -> Routes.HOME
+    AppTopLevelDestination.AUDIO -> Routes.AUDIO
     AppTopLevelDestination.LIVE_TV -> Routes.LIVE_TV
     AppTopLevelDestination.MOVIES -> Routes.MOVIES
     AppTopLevelDestination.SERIES -> Routes.SERIES
