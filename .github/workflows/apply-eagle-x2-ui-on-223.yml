@@ -22,16 +22,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin b6b300206cfb0428cdb9a3d385279a31de46fba2 --no-tags
-          if git merge-tree --write-tree HEAD b6b300206cfb0428cdb9a3d385279a31de46fba2 >/tmp/tree 2>/tmp/merge.err; then
-            tree=$(cat /tmp/tree)
-            git read-tree "$tree"
-          else
-            git cherry-pick --no-commit b6b300206cfb0428cdb9a3d385279a31de46fba2 || {
-              echo "UI merge conflicted; refusing to overwrite activation logic."
-              git cherry-pick --abort || true
-              exit 1
-            }
-          fi
-          git rm -f .github/workflows/apply-eagle-x2-ui-on-223.yml || true
+          git cherry-pick --no-commit b6b300206cfb0428cdb9a3d385279a31de46fba2
+          git rm -f .github/workflows/apply-eagle-x2-ui-on-223.yml
           git commit -m "feat(activation): apply Eagle X2 pass UI to #223 baseline"
           git push origin HEAD
