@@ -18,7 +18,7 @@ enum class AppTopLevelDestination(
 
     companion object {
         val defaultOrder: List<AppTopLevelDestination> = listOf(
-            HOME,
+            AUDIO,
             LIVE_TV,
             MOVIES,
             SERIES,
