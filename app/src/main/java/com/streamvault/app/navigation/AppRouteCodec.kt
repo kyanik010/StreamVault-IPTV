@@ -12,6 +12,7 @@ import java.net.URLDecoder
 
 internal object AppRoutePatterns {
     const val WELCOME = SystemRoutePatterns.WELCOME
+    const val AUDIO = "audio"
     const val HOME = CatalogRoutePatterns.HOME
     const val LIVE_TV = LiveRoutePatterns.LIVE_TV
     const val LIVE_TV_DESTINATION = LiveRoutePatterns.LIVE_TV_DESTINATION
@@ -37,6 +38,7 @@ internal object AppRoutePatterns {
 internal object AppRouteCodec {
     fun encode(destination: AppDestination): String = when (destination) {
         AppDestination.Welcome -> AppRoutePatterns.WELCOME
+        AppDestination.Audio -> AppRoutePatterns.AUDIO
         AppDestination.Home -> AppRoutePatterns.HOME
         is AppDestination.LiveTv -> destination.categoryId?.let { categoryId ->
             "${AppRoutePatterns.LIVE_TV}?categoryId=$categoryId"
@@ -85,6 +87,7 @@ internal object AppRouteCodec {
         val query = normalizedRoute.queryParameters()
         return when {
             path == AppRoutePatterns.WELCOME -> AppDestination.Welcome
+            path == AppRoutePatterns.AUDIO -> AppDestination.Audio
             path == AppRoutePatterns.HOME -> AppDestination.Home
             path == AppRoutePatterns.LIVE_TV -> {
                 when {
@@ -177,6 +180,7 @@ internal object AppRouteCodec {
 /** Temporary compatibility facade for route-based consumers during navigation migration. */
 internal object Routes {
     const val PROVIDER_SETUP = AppRoutePatterns.PROVIDER_SETUP
+    const val AUDIO = AppRoutePatterns.AUDIO
     const val HOME = AppRoutePatterns.HOME
     const val LIVE_TV = AppRoutePatterns.LIVE_TV
     const val LIVE_TV_DESTINATION = AppRoutePatterns.LIVE_TV_DESTINATION
