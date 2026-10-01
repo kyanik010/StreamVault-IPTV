@@ -18,7 +18,7 @@ enum class AppTopLevelDestination(
 
     companion object {
         val defaultOrder: List<AppTopLevelDestination> = listOf(
-            AUDIO,
+            HOME,
             LIVE_TV,
             MOVIES,
             SERIES,
@@ -35,7 +35,7 @@ enum class AppTopLevelDestination(
         fun normalizeForStorage(destinations: List<AppTopLevelDestination>): List<AppTopLevelDestination> {
             val unique = linkedSetOf<AppTopLevelDestination>()
             destinations.forEach { destination ->
-                unique += if (destination == HOME) AUDIO else destination
+                unique += destination
             }
             unique += SETTINGS
             return unique.toList()
