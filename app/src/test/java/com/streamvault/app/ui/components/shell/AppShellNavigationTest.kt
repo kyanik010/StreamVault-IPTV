@@ -54,7 +54,7 @@ class AppShellNavigationTest {
         )
 
         assertThat(result.map { it.route })
-            .containsExactly(Routes.AUDIO, Routes.VOD)
+            .containsExactly(Routes.HOME, Routes.VOD)
             .inOrder()
     }
 }
