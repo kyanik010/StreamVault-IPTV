@@ -57,14 +57,9 @@ class DualSourceAudioCoordinator @Inject constructor(
         }
 
         val cached = audioSourceCatalogCache.get(currentProviderId)
-        _state.value = _state.value.copy(
-            loading = cached == null && !audioSourceCatalogCache.wasWarmed(currentProviderId),
-            error = null
-        )
-
-        val channels = runCatching {
-            cached ?: audioSourceCatalogCache.warm(currentProviderId)
-        }.getOrDefault(emptyList())
+        // The picker is a read-only consumer of the Audio cache.
+        // Never warm, prepare, refresh, resolve, or contact Xtream from this path.
+        val channels = cached.orEmpty()
             .filter { channel ->
                 currentVideoUrl.isNullOrBlank() || channel.streamUrl != currentVideoUrl
             }
@@ -99,13 +94,9 @@ class DualSourceAudioCoordinator @Inject constructor(
         engine = videoEngine
         if (channel.streamUrl.isBlank()) return Result.error("رابط مصدر الصوت غير صالح.")
 
-        // Selection is allowed to read the already-persisted Room library into memory,
-        // but it must never resolve/refresh a stream URL or make an Xtream request.
-        var prepared = audioSourceCatalogCache.getPrepared(currentProviderId, channel.id)
-        if (prepared == null && currentProviderId > 0L) {
-            audioSourceCatalogCache.warm(currentProviderId)
-            prepared = audioSourceCatalogCache.getPrepared(currentProviderId, channel.id)
-        }
+        // Selection is strictly in-memory. The source must have been prepared during Sync
+        // and loaded into the cache before the picker is opened.
+        val prepared = audioSourceCatalogCache.getPrepared(currentProviderId, channel.id)
         if (prepared == null) {
             return Result.error("مصدر الصوت غير موجود في مكتبة Audio الجاهزة.")
         }
@@ -124,7 +115,7 @@ class DualSourceAudioCoordinator @Inject constructor(
             )
         }
 
-        if (resolvedStreamInfo == null || resolvedStreamInfo.url.isBlank()) {
+        if (resolvedStreamInfo.url.isBlank()) {
             return Result.error("تعذر تجهيز رابط مصدر الصوت للقناة المحددة.")
         }
 
