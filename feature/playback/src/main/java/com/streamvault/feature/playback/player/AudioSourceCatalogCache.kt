@@ -10,8 +10,9 @@ import kotlinx.coroutines.flow.first
 /**
  * Audio-source catalog is derived from the already persisted Live TV catalog.
  *
- * This deliberately does not call Xtream again. Room's channels table is the persistent source
- * of truth, so after an app restart the first read is local and does not re-download the playlist.
+ * No name, group, type, quality, sports, whitelist, or blacklist filtering is applied here.
+ * Room's channels table remains the persistent source of truth, so after an app restart the
+ * first read is local and does not re-download the playlist.
  */
 @Singleton
 class AudioSourceCatalogCache @Inject constructor(
@@ -32,7 +33,6 @@ class AudioSourceCatalogCache @Inject constructor(
         val channels = channelRepository.getChannels(providerId)
             .first()
             .asSequence()
-            .filter(AudioSourceCatalogPolicy::isEligible)
             .filter { it.streamUrl.isNotBlank() }
             .distinctBy { it.streamUrl }
             .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
@@ -45,7 +45,7 @@ class AudioSourceCatalogCache @Inject constructor(
     fun get(providerId: Long): List<Channel>? = cache[providerId]
 
     /**
-     * True only when the filtered catalog is already in process memory.
+     * True only when the complete unfiltered catalog is already in process memory.
      * After process death warm() reads the same persistent Room catalog locally.
      */
     fun wasWarmed(providerId: Long): Boolean =
@@ -59,45 +59,5 @@ class AudioSourceCatalogCache @Inject constructor(
             cache.remove(providerId)
             locks.remove(providerId)
         }
-    }
-}
-
-private object AudioSourceCatalogPolicy {
-    private val qualityPattern = Regex("""(?:^|[\s._()\[\]-])(sd|hd)(?:$|[\s._()\[\]-])""")
-    private val sportsKeywords = listOf(
-        "sport", "sports", "bein", "beinsports", "ssc", "alkass", "al kass",
-        "abu dhabi sport", "ad sport", "ad sports", "kora", "football", "soccer",
-        "match", "arena", "eurosport", "espn", "sky sport", "super sport",
-        "sport tv", "دوري", "رياضة", "رياضي", "كرة", "مباراة", "الكاس", "كأس",
-        "بي ان", "بين سبورت", "ssc"
-    )
-
-    fun isEligible(channel: Channel): Boolean {
-        val searchable = buildString {
-            append(channel.name)
-            append(' ')
-            append(channel.canonicalName)
-            append(' ')
-            append(channel.groupTitle.orEmpty())
-            append(' ')
-            append(channel.categoryName.orEmpty())
-            channel.qualityOptions.forEach {
-                append(' ')
-                append(it.label)
-            }
-            channel.variants.forEach { variant ->
-                append(' ')
-                append(variant.originalName)
-                append(' ')
-                append(variant.attributes.resolutionLabel.orEmpty())
-                append(' ')
-                append(variant.attributes.sourceHint.orEmpty())
-            }
-        }.lowercase()
-
-        val hasSdOrHd = qualityPattern.containsMatchIn(searchable)
-        if (!hasSdOrHd) return false
-
-        return sportsKeywords.any(searchable::contains)
     }
 }
