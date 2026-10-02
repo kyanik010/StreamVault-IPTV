@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.streamvault.domain.model.ExternalAudioSource
 import com.streamvault.feature.playback.player.AudioSourceCatalogCache
-import com.streamvault.domain.repository.ChannelRepository
 import com.streamvault.domain.repository.ProviderRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -24,7 +23,6 @@ data class AudioLibraryUiState(
 @HiltViewModel
 class AudioLibraryViewModel @Inject constructor(
     private val providerRepository: ProviderRepository,
-    private val channelRepository: ChannelRepository,
     private val audioSourceCatalogCache: AudioSourceCatalogCache,
 ) : ViewModel() {
     private val _state = MutableStateFlow(AudioLibraryUiState())
@@ -52,7 +50,7 @@ class AudioLibraryViewModel @Inject constructor(
                     if (cached == null) {
                         audioSourceCatalogCache.warm(id)
                     }
-                    channelRepository.getExternalAudioSources(id)
+                    audioSourceCatalogCache.getPreparedSources(id)
                 }.onSuccess { sources ->
                     _state.value = AudioLibraryUiState(
                         providerId = id,
