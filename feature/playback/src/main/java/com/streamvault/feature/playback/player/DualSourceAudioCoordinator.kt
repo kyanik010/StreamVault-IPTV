@@ -128,8 +128,9 @@ class DualSourceAudioCoordinator @Inject constructor(
             channel.logoUrl,
             channel.groupTitle
         )
+        // Start the independent audio stream only. Synchronization is manual via the Sync button.
+        // Do not seek/reposition the audio source automatically when it is selected.
         videoEngine.playAudioSource(audioChannel, resolvedStreamInfo)
-        videoEngine.syncAudioSourceToVideo(videoEngine.currentPosition.value)
         _state.value = _state.value.copy(
             selectedChannelId = channel.id,
             error = null,
