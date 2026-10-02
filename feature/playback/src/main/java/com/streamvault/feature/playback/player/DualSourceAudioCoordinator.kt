@@ -56,14 +56,16 @@ class DualSourceAudioCoordinator @Inject constructor(
             )
         }
 
+        // The Audio library is prepared during subscription sync and persisted in Room.
+        // If the in-memory view was not warmed yet (for example after process recreation),
+        // hydrate it from that already-prepared local library. This never contacts Xtream.
         val cached = audioSourceCatalogCache.get(currentProviderId)
-        // The picker is a read-only consumer of the Audio cache.
-        // Never warm, prepare, refresh, resolve, or contact Xtream from this path.
+            ?: audioSourceCatalogCache.warm(currentProviderId)
         _state.value = _state.value.copy(
             loading = false,
             error = null
         )
-        val channels = cached.orEmpty()
+        val channels = cached
             .filter { channel ->
                 currentVideoUrl.isNullOrBlank() || channel.streamUrl != currentVideoUrl
             }
