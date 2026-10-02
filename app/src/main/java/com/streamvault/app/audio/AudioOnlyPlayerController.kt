@@ -40,7 +40,9 @@ class AudioOnlyPlayerController(
     val error: StateFlow<String?> = _error.asStateFlow()
 
     fun play(source: ExternalAudioSource) {
-        val url = source.resolvedUrl.trim()
+        val url = source.resolvedUrl
+            .takeIf { it.isNotBlank() && !source.isExpired() }
+            ?: source.sourceUrl
         if (url.isBlank()) {
             _error.value = "مصدر الصوت غير جاهز. أعد مزامنة الاشتراك."
             _isPlaying.value = false
