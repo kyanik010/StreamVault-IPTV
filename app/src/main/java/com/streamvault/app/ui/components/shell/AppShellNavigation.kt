@@ -32,24 +32,17 @@ import com.streamvault.core.ui.components.shell.UiDestination
 import com.streamvault.domain.model.AppTopLevelDestination
 import com.streamvault.domain.model.CatalogLayout
 
-enum class AppNavigationChrome {
-    Rail,
-    TopBar
-}
+enum class AppNavigationChrome { Rail, TopBar }
 
 internal val LocalAppDestinationItems = staticCompositionLocalOf<List<UiDestination>?> { null }
 internal val LocalAppCloseAction = staticCompositionLocalOf<(() -> Unit)?> { null }
 
 @Composable
 fun AppScreenScaffold(
-    currentRoute: String,
-    onNavigate: (String) -> Unit,
-    title: String,
-    modifier: Modifier = Modifier,
-    subtitle: String? = null,
+    currentRoute: String, onNavigate: (String) -> Unit, title: String,
+    modifier: Modifier = Modifier, subtitle: String? = null,
     navigationChrome: AppNavigationChrome = AppNavigationChrome.Rail,
-    topBarVisible: Boolean = true,
-    compactHeader: Boolean = false,
+    topBarVisible: Boolean = true, compactHeader: Boolean = false,
     showScreenHeader: Boolean = true,
     header: (@Composable ColumnScope.() -> Unit)? = null,
     topBarActions: (@Composable RowScope.() -> Unit)? = null,
@@ -60,45 +53,32 @@ fun AppScreenScaffold(
         ?: rememberAppDestinationItems(AppTopLevelDestination.defaultOrder, CatalogLayout.SPLIT)
     val closeAppAction = LocalAppCloseAction.current
     val closeAppLabel = stringResource(R.string.nav_close_app)
-
     CoreAppScreenScaffold(
-        currentDestinationId = currentRoute,
-        destinations = navigationDestinations,
-        onDestinationSelected = onNavigate,
-        title = title,
-        subtitle = subtitle,
+        currentDestinationId = currentRoute, destinations = navigationDestinations,
+        onDestinationSelected = onNavigate, title = title, subtitle = subtitle,
         modifier = modifier,
         navigationChrome = when (navigationChrome) {
             AppNavigationChrome.Rail -> NavigationChrome.Rail
             AppNavigationChrome.TopBar -> NavigationChrome.TopBar
         },
-        topBarVisible = topBarVisible,
-        compactHeader = compactHeader,
-        showScreenHeader = showScreenHeader,
-        header = header,
+        topBarVisible = topBarVisible, compactHeader = compactHeader,
+        showScreenHeader = showScreenHeader, header = header,
         topBarActions = {
             topBarActions?.invoke(this)
             if (closeAppAction != null) AppTopBarCloseAction(closeAppAction, closeAppLabel)
-        },
-        contentPadding = contentPadding,
-        content = content
+        }, contentPadding = contentPadding, content = content
     )
 }
 
 internal data class AppDestinationItem(
-    val route: String,
-    @param:StringRes val labelRes: Int,
-    val icon: ImageVector
+    val route: String, @param:StringRes val labelRes: Int, val icon: ImageVector
 )
 
 internal fun buildDestinationItems(
-    configured: List<AppTopLevelDestination>,
-    layout: CatalogLayout
+    configured: List<AppTopLevelDestination>, layout: CatalogLayout
 ): List<AppDestinationItem> {
     val audioExcluded = configured.filterNot { it == AppTopLevelDestination.AUDIO }
-    if (layout == CatalogLayout.SPLIT) {
-        return audioExcluded.distinct().map { it.toDestinationItem() }
-    }
+    if (layout == CatalogLayout.SPLIT) return audioExcluded.distinct().map { it.toDestinationItem() }
 
     var insertedVod = false
     return buildList {
@@ -108,7 +88,7 @@ internal fun buildDestinationItems(
                 AppTopLevelDestination.SERIES -> if (!insertedVod) {
                     add(AppDestinationItem(Routes.VOD, R.string.nav_vod, Icons.Default.Star))
                     insertedVod = true
-                } else add(destination.toDestinationItem())
+                }
                 else -> add(destination.toDestinationItem())
             }
         }
@@ -117,8 +97,7 @@ internal fun buildDestinationItems(
 
 @Composable
 internal fun rememberAppDestinationItems(
-    configuredDestinations: List<AppTopLevelDestination>,
-    catalogLayout: CatalogLayout
+    configuredDestinations: List<AppTopLevelDestination>, catalogLayout: CatalogLayout
 ): List<UiDestination> {
     val destinationItems = remember(configuredDestinations, catalogLayout) {
         buildDestinationItems(configuredDestinations, catalogLayout)
