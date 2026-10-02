@@ -23,8 +23,6 @@ class AudioSourceCatalogCache @Inject constructor(
 
     suspend fun warm(providerId: Long): List<Channel> {
         if (providerId <= 0L) return emptyList()
-        cache[providerId]?.let { return it }
-
         val prepared = channelRepository.getExternalAudioSources(providerId)
         val preparedByChannel = prepared.associateBy { it.channelId }
         preparedCache[providerId] = preparedByChannel
@@ -54,6 +52,12 @@ class AudioSourceCatalogCache @Inject constructor(
     }
 
     fun get(providerId: Long): List<Channel>? = cache[providerId]
+
+    fun getPreparedSources(providerId: Long): List<ExternalAudioSource> =
+        preparedCache[providerId]
+            ?.values
+            ?.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
+            .orEmpty()
 
     fun getPrepared(providerId: Long, channelId: Long): ExternalAudioSource? =
         preparedCache[providerId]?.get(channelId)
