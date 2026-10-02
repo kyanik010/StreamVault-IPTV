@@ -1427,7 +1427,7 @@ class SyncManager @Inject constructor(
         }
     }
 
-    suspend fun prepareExternalAudioLibraryForOnboarding(
+    override suspend fun prepareExternalAudioLibraryForOnboarding(
         providerId: Long,
         onProgress: ((String) -> Unit)?
     ): Result<Unit> {
