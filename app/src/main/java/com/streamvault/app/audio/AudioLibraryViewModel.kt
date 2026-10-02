@@ -3,6 +3,7 @@ package com.streamvault.app.audio
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.streamvault.domain.model.ExternalAudioSource
+import com.streamvault.feature.playback.player.AudioSourceCatalogCache
 import com.streamvault.domain.repository.ChannelRepository
 import com.streamvault.domain.repository.ProviderRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -24,6 +25,7 @@ data class AudioLibraryUiState(
 class AudioLibraryViewModel @Inject constructor(
     private val providerRepository: ProviderRepository,
     private val channelRepository: ChannelRepository,
+    private val audioSourceCatalogCache: AudioSourceCatalogCache,
 ) : ViewModel() {
     private val _state = MutableStateFlow(AudioLibraryUiState())
     val state: StateFlow<AudioLibraryUiState> = _state.asStateFlow()
@@ -43,6 +45,13 @@ class AudioLibraryViewModel @Inject constructor(
 
                 _state.value = AudioLibraryUiState(providerId = id, loading = true)
                 runCatching {
+                    // Audio Library and the in-player picker consume the same cache backed by
+                    // the same persistent Room ExternalAudioSource records. This is a local read;
+                    // it never prepares, resolves, refreshes, or contacts Xtream.
+                    val cached = audioSourceCatalogCache.get(id)
+                    if (cached == null) {
+                        audioSourceCatalogCache.warm(id)
+                    }
                     channelRepository.getExternalAudioSources(id)
                 }.onSuccess { sources ->
                     _state.value = AudioLibraryUiState(
