@@ -17,7 +17,6 @@ class AppShellNavigationTest {
 
         assertThat(result.map { it.route })
             .containsExactly(
-                Routes.AUDIO,
                 Routes.LIVE_TV,
                 Routes.MOVIES,
                 Routes.SERIES,
