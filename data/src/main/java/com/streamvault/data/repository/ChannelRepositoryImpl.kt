@@ -335,42 +335,29 @@ class ChannelRepositoryImpl @Inject constructor(
             return 0
         }
         val existing = externalAudioSourceDao.getByProvider(providerId).associateBy { it.channelId }
-        val semaphore = Semaphore(6)
-        val prepared = coroutineScope {
-            channels.map { entity ->
-                async(Dispatchers.IO) {
-                    semaphore.withPermit {
-                        val cached = existing[entity.id]
-                            ?.takeIf { it.sourceUrl == entity.streamUrl }
-                            ?.takeIf { !isPreparedSourceExpired(it.expirationTime) }
-
-                        cached ?: getStreamInfo(entity.toDomain(), preferStableUrl = true)
-                            .getOrNull()
-                            ?.takeIf { it.url.isNotBlank() }
-                            ?.let { info ->
-                                ExternalAudioSourceEntity(
-                                    providerId = providerId,
-                                    channelId = entity.id,
-                                    streamId = entity.streamId,
-                                    name = entity.name,
-                                    logoUrl = entity.logoUrl,
-                                    groupTitle = entity.groupTitle,
-                                    sourceUrl = entity.streamUrl,
-                                    resolvedUrl = info.url,
-                                    headersJson = encodeHeaders(info.headers),
-                                    userAgent = info.userAgent,
-                                    expirationTime = info.expirationTime,
-                                    containerExtension = info.containerExtension,
-                                    preparedAt = System.currentTimeMillis()
-                                )
-                            }
-                    }
-                }
-            }.awaitAll().filterNotNull()
+        val prepared = channels.map { entity ->
+            existing[entity.id]
+                ?.takeIf { it.sourceUrl == entity.streamUrl }
+                ?.takeIf { !isPreparedSourceExpired(it.expirationTime) }
+                ?: ExternalAudioSourceEntity(
+                    providerId = providerId,
+                    channelId = entity.id,
+                    streamId = entity.streamId,
+                    name = entity.name,
+                    logoUrl = entity.logoUrl,
+                    groupTitle = entity.groupTitle,
+                    sourceUrl = entity.streamUrl,
+                    resolvedUrl = "",
+                    headersJson = "",
+                    userAgent = null,
+                    expirationTime = null,
+                    containerExtension = null,
+                    preparedAt = System.currentTimeMillis()
+                )
         }
         externalAudioSourceDao.upsertAll(prepared)
         externalAudioSourceDao.deleteStale(providerId, channels.map { it.id })
-        Log.i(TAG, "External Audio library prepared: provider=$providerId eligible=${channels.size} resolved=${prepared.size}")
+        Log.i(TAG, "External Audio library prepared locally: provider=$providerId eligible=${channels.size}")
         return prepared.size
     }
 
