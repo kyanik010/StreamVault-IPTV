@@ -324,22 +324,35 @@ class ChannelRepositoryImpl @Inject constructor(
     override suspend fun getExternalAudioSource(providerId: Long, channelId: Long): ExternalAudioSource? =
         externalAudioSourceDao.get(providerId, channelId)?.let(::toExternalAudioSource)
 
-    override suspend fun prepareExternalAudioLibrary(providerId: Long): Int {
-        if (providerId <= 0L) return 0
+    override suspend fun prepareExternalAudioLibrary(providerId: Long): Int =
+        prepareExternalAudioLibrary(providerId, null)
+
+    override suspend fun prepareExternalAudioLibrary(
+        providerId: Long,
+        onProgress: ((current: Int, total: Int) -> Unit)?
+    ): Int {
+        if (providerId <= 0L) {
+            onProgress?.invoke(0, 0)
+            return 0
+        }
         val channels = channelDao.getByProviderSync(providerId)
             .filter(::isExternalAudioEligible)
             .filter { it.streamUrl.isNotBlank() }
             .distinctBy { it.streamId.takeIf { id -> id > 0L } ?: it.id }
         if (channels.isEmpty()) {
             externalAudioSourceDao.deleteByProvider(providerId)
+            onProgress?.invoke(0, 0)
             return 0
         }
         val existing = externalAudioSourceDao.getByProvider(providerId).associateBy { it.channelId }
         val semaphore = Semaphore(6)
+        val completed = java.util.concurrent.atomic.AtomicInteger(0)
+        onProgress?.invoke(0, channels.size)
         val prepared = coroutineScope {
             channels.map { entity ->
                 async(Dispatchers.IO) {
-                    semaphore.withPermit {
+                    try {
+                        semaphore.withPermit {
                         val cached = existing[entity.id]
                             ?.takeIf { it.sourceUrl == entity.streamUrl }
                             ?.takeIf { !isPreparedSourceExpired(it.expirationTime) }
@@ -364,6 +377,9 @@ class ChannelRepositoryImpl @Inject constructor(
                                     preparedAt = System.currentTimeMillis()
                                 )
                             }
+                    }
+                    } finally {
+                        onProgress?.invoke(completed.incrementAndGet(), channels.size)
                     }
                 }
             }.awaitAll().filterNotNull()
