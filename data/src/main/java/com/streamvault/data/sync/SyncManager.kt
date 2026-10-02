@@ -1427,6 +1427,31 @@ class SyncManager @Inject constructor(
         }
     }
 
+    private suspend fun prepareExternalAudioLibraryForOnboarding(
+        providerId: Long,
+        onProgress: ((String) -> Unit)?
+    ): Result<Unit> {
+        return try {
+            channelRepository.prepareExternalAudioLibrary(providerId) { current, total ->
+                emitCatalogSyncProgress(
+                    providerId = providerId,
+                    section = Section.AUDIO,
+                    current = current,
+                    total = total,
+                    currentLabel = "جاري مزامنة وتحميل مكتبة الصوتيات...",
+                    itemsIndexed = current
+                )
+                onProgress?.invoke("جاري مزامنة وتحميل مكتبة الصوتيات... $current%")
+            }
+            Result.success(Unit)
+        } catch (error: Exception) {
+            Result.error(
+                syncErrorSanitizer.userMessage(error, "فشلت مزامنة مكتبة الصوتيات"),
+                error
+            )
+        }
+    }
+
     override suspend fun processQueuedXtreamIndexJobs(
         providerId: Long,
         section: ContentType?,
