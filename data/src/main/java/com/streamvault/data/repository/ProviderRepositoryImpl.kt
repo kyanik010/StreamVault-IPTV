@@ -1412,10 +1412,18 @@ class ProviderRepositoryImpl @Inject constructor(
             )
         }
 
-        // Initial Xtream onboarding must not finish after only the Live TV/audio/category-shell
-        // phase. The user expects the same ready-to-browse catalog that a manual Xtream sync
-        // produces, so drain the queued Movies and Series indexes before completing onboarding.
+        // Keep the original Xtream sync untouched. Audio is the only additional onboarding branch.
         if (syncResult is Result.Success && target.providerData.type == ProviderType.XTREAM_CODES) {
+            onProgress?.invoke("جاري مزامنة وتحميل مكتبة الصوتيات...")
+            val audioResult = syncManager.prepareExternalAudioLibraryForOnboarding(
+                providerId = target.providerData.id,
+                onProgress = onProgress
+            )
+            if (audioResult is Result.Error) return audioResult
+
+            // Initial Xtream onboarding must not finish before Movies and Series indexing completes.
+            // This reuses the original queue processor; no alternate category/full-stream mode.
+
             onProgress?.invoke("جاري مزامنة وتحميل الأفلام...")
             syncManager.processQueuedXtreamIndexJobs(
                 providerId = target.providerData.id,
