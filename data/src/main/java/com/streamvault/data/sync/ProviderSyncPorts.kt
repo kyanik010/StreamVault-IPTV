@@ -86,6 +86,11 @@ interface ProviderSyncCommands {
         onProgress: ((String) -> Unit)? = null
     ): Result<Unit>
 
+    suspend fun prepareExternalAudioLibraryForOnboarding(
+        providerId: Long,
+        onProgress: ((String) -> Unit)? = null
+    ): Result<Unit>
+
     suspend fun processQueuedXtreamIndexJobs(
         providerId: Long,
         section: ContentType? = null,
