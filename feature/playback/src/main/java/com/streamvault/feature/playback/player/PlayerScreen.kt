@@ -865,12 +865,6 @@ fun PlayerScreen(
                     viewModel.selectAudioSource(channel)
                     showAudioSource = false
                 },
-                onSelectProvider = { providerId ->
-                    viewModel.selectAudioProvider(providerId)
-                },
-                onAddAudioAccount = { serverUrl, username, password, name ->
-                    viewModel.addAudioSourceAccount(serverUrl, username, password, name)
-                },
                 onSync = viewModel::syncAudioSource,
                 onOffsetMinus = { viewModel.adjustAudioSourceOffset(-50L) },
                 onOffsetPlus = { viewModel.adjustAudioSourceOffset(50L) },
@@ -1016,6 +1010,10 @@ fun PlayerScreen(
                 showDiagnostics = showDiagnostics,
                 videoFormat = videoFormat,
                 onOpenModal = { modal -> modalState = modalState.open(modal) },
+                onOpenAudioSource = {
+                    showAudioSource = true
+                    viewModel.openAudioSource()
+                },
                 onEnterPictureInPicture = enterPictureInPicture,
                 onRunRecordingAction = notificationPermissionGate::runRecordingAction,
                 onOpenCastRouteChooser = { playbackPlatformHost?.openCastRouteChooser() },

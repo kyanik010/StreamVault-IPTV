@@ -683,4 +683,7 @@
 <string name="settings_drive_manage_title">Saved Drive backups</string>
 <string name="settings_providers_subtitle">بدّل مصادر IPTV الخاصة بك، وزامنها، وعدّلها، واستكشف أخطاءها.</string>
 <string name="settings_title">الإعدادات</string>
+    <string name="settings_vpn_enable">تشغيل VPN</string>
+    <string name="settings_vpn_connected">متصل عبر Lantern · المنفذ %1$d</string>
+    <string name="settings_vpn_disconnected">غير متصل</string>
 </resources>

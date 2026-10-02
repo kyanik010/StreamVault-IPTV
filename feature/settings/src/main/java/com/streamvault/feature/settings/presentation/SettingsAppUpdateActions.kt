@@ -19,8 +19,10 @@ internal class SettingsAppUpdateActions(
 ) {
     private var updateCheckInFlight = false
 
-    fun shouldAutoCheckForUpdates(lastSuccessfulCheckAt: Long?, lastFailedCheckAt: Long?): Boolean =
-        appUpdatePort.shouldAutoCheckForUpdates(lastSuccessfulCheckAt, lastFailedCheckAt)
+    // Automatic update checks are intentionally disabled for this build.
+    // Manual update APIs remain intact, but startup/open-settings must never
+    // contact the release source or surface an automatic update message.
+    fun shouldAutoCheckForUpdates(lastSuccessfulCheckAt: Long?, lastFailedCheckAt: Long?): Boolean = false
 
     fun checkForAppUpdates(
         scope: CoroutineScope,

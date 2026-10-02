@@ -44,7 +44,7 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideOkHttpClient(
-        @ApplicationContext context: Context
+        @ApplicationContext context: Context,
     ): OkHttpClient {
         val appUserAgent = buildAppUserAgent(BuildConfig.VERSION_NAME)
         val isDebuggable = (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0

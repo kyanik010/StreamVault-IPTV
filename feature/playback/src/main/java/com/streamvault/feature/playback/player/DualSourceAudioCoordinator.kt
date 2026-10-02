@@ -1,39 +1,18 @@
 package com.streamvault.feature.playback.player
 
-import android.content.ComponentName
-import android.content.Context
-import android.content.Intent
-import android.content.ServiceConnection
-import android.content.pm.PackageManager
-import android.os.Bundle
-import android.os.Handler
-import android.os.IBinder
-import android.os.Looper
-import android.os.Message
-import android.os.Messenger
 import com.streamvault.domain.model.AudioSourceChannel
 import com.streamvault.domain.model.Channel
-import com.streamvault.domain.model.LegacyProvider as Provider
 import com.streamvault.domain.model.Result
 import com.streamvault.domain.model.StreamInfo
-import com.streamvault.domain.usecase.ValidateAndAddProviderResult
+import com.streamvault.domain.repository.ChannelRepository
 import com.streamvault.player.PlayerEngine
-import dagger.hilt.android.qualifiers.ApplicationContext
-import java.util.UUID
 import javax.inject.Inject
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 
 data class AudioSourceUiState(
     val available: Boolean = false,
-    val providers: List<Provider> = emptyList(),
-    val providerId: Long? = null,
-    val providerName: String = "Audio Source",
     val channels: List<Channel> = emptyList(),
     val selectedChannelId: Long? = null,
     val loading: Boolean = false,
@@ -41,11 +20,11 @@ data class AudioSourceUiState(
     val driftMs: Long? = null,
     val manualOffsetMs: Long = 0L,
     val syncState: String = "IDLE",
-    val addingAccount: Boolean = false
 )
 
 class DualSourceAudioCoordinator @Inject constructor(
-    @ApplicationContext private val context: Context
+    private val channelRepository: ChannelRepository,
+    private val audioSourceCatalogCache: AudioSourceCatalogCache,
 ) {
     private val _state = MutableStateFlow(AudioSourceUiState())
     val state: StateFlow<AudioSourceUiState> = _state.asStateFlow()
@@ -56,56 +35,62 @@ class DualSourceAudioCoordinator @Inject constructor(
         syncState()
     }
 
-    suspend fun load(currentProviderId: Long): AudioSourceUiState {
-        val currentEngine = engine ?: return _state.value.copy(error = "مصدر الصوت غير جاهز")
-        _state.value = _state.value.copy(loading = true, error = null)
-
-        val pluginChannels = loadPluginChannels()
-        val channels = if (pluginChannels.isNotEmpty()) {
-            pluginChannels
-        } else {
-            currentEngine.audioSourceChannels.value
+    suspend fun preload(currentProviderId: Long) {
+        if (currentProviderId > 0L) {
+            audioSourceCatalogCache.warm(currentProviderId)
         }
+    }
 
-        val selected = currentEngine.selectedAudioSource.value
-        val mapped = channels.mapIndexed { index, channel ->
-            Channel(
-                id = index.toLong() + 1L,
-                name = channel.name,
-                canonicalName = channel.name,
-                logoUrl = channel.logo,
-                groupTitle = channel.group,
-                streamUrl = channel.url,
+    suspend fun load(
+        currentProviderId: Long,
+        currentVideoUrl: String? = null,
+    ): AudioSourceUiState {
+        val currentEngine = engine ?: return _state.value.copy(
+            error = "مصدر الصوت غير جاهز",
+            loading = false,
+        )
+        if (currentProviderId <= 0L) {
+            return _state.value.copy(
+                available = false,
+                channels = emptyList(),
+                loading = false,
+                error = "لم يتم العثور على مصدر IPTV الحالي.",
             )
         }
-        val selectedId = selected?.let { s ->
-            channels.indexOfFirst { it.url == s.url }.takeIf { it >= 0 }?.plus(1L)
+
+        val cached = audioSourceCatalogCache.get(currentProviderId)
+        _state.value = _state.value.copy(
+            loading = cached == null && !audioSourceCatalogCache.wasWarmed(currentProviderId),
+            error = null
+        )
+
+        val channels = runCatching {
+            cached ?: audioSourceCatalogCache.warm(currentProviderId)
+        }.getOrDefault(emptyList())
+            .filter { channel ->
+                currentVideoUrl.isNullOrBlank() || channel.streamUrl != currentVideoUrl
+            }
+
+        val selected = currentEngine.selectedAudioSource.value
+        val selectedId = selected?.let { selectedSource ->
+            channels.firstOrNull { it.streamUrl == selectedSource.url }?.id
         }
 
         _state.value = _state.value.copy(
-            available = mapped.isNotEmpty(),
-            providers = emptyList(),
-            providerId = null,
-            providerName = if (pluginChannels.isNotEmpty()) "StreamVault Audio Source" else "Audio Source",
-            channels = mapped,
+            available = channels.isNotEmpty(),
+            channels = channels,
             selectedChannelId = selectedId,
             loading = false,
-            error = if (mapped.isEmpty()) "لا توجد قنوات صوتية محملة. ثبّت إضافة StreamVault Audio Source واضبط حساب Xtream." else null,
+            error = if (channels.isEmpty()) {
+                "لا توجد قنوات IPTV متاحة في الاشتراك الحالي."
+            } else {
+                null
+            },
             manualOffsetMs = currentEngine.audioSourceSyncMs.value.toLong(),
             syncState = if (selected != null) "AUDIO_ACTIVE" else "IDLE",
         )
         return _state.value
     }
-
-    suspend fun addXtreamAudioAccount(
-        serverUrl: String,
-        username: String,
-        password: String,
-        name: String
-    ): ValidateAndAddProviderResult =
-        ValidateAndAddProviderResult.ValidationError("اضبط حساب الصوت من إضافة StreamVault Audio Source.")
-
-    suspend fun selectProvider(providerId: Long, currentProviderId: Long): AudioSourceUiState = _state.value
 
     suspend fun select(
         channel: Channel,
@@ -115,9 +100,34 @@ class DualSourceAudioCoordinator @Inject constructor(
     ): Result<Unit> {
         engine = videoEngine
         if (channel.streamUrl.isBlank()) return Result.error("رابط مصدر الصوت غير صالح.")
-        videoEngine.playAudioSource(
-            AudioSourceChannel(channel.name, channel.streamUrl, channel.logoUrl, channel.groupTitle)
+
+        // Resolve once through the provider layer and retain the complete StreamInfo.
+        // This carries the same headers, User-Agent, transport policy, proxy and
+        // container metadata used by the normal video player.
+        val resolvedStreamInfo = channelRepository
+            .getStreamInfo(channel, preferStableUrl = false)
+            .getOrNull()
+            ?: channel.streamUrl.takeUnless {
+                it.startsWith("streamvault://", ignoreCase = true) ||
+                    it.startsWith("stalker://", ignoreCase = true)
+            }?.let {
+                StreamInfo(
+                    url = it,
+                    title = channel.name
+                )
+            }
+
+        if (resolvedStreamInfo == null || resolvedStreamInfo.url.isBlank()) {
+            return Result.error("تعذر تجهيز رابط مصدر الصوت للقناة المحددة.")
+        }
+
+        val audioChannel = AudioSourceChannel(
+            channel.name,
+            resolvedStreamInfo.url,
+            channel.logoUrl,
+            channel.groupTitle
         )
+        videoEngine.playAudioSource(audioChannel, resolvedStreamInfo)
         videoEngine.syncAudioSourceToVideo(videoEngine.currentPosition.value)
         _state.value = _state.value.copy(
             selectedChannelId = channel.id,
@@ -129,12 +139,16 @@ class DualSourceAudioCoordinator @Inject constructor(
     }
 
     fun syncNow() {
-        engine?.syncAudioSourceToVideo(engine?.currentPosition?.value ?: 0L)
+        engine?.let { current ->
+            current.syncAudioSourceToVideo(current.currentPosition.value)
+        }
         syncState()
     }
 
     fun adjustOffset(deltaMs: Long) {
-        engine?.let { it.setAudioSourceSyncMs(it.audioSourceSyncMs.value + deltaMs.toInt()) }
+        engine?.let {
+            it.setAudioSourceSyncMs(it.audioSourceSyncMs.value + deltaMs.toInt())
+        }
         syncState()
     }
 
@@ -169,97 +183,5 @@ class DualSourceAudioCoordinator @Inject constructor(
     fun stop() {
         engine?.stopAudioSource()
         _state.value = AudioSourceUiState()
-    }
-
-    private suspend fun loadPluginChannels(): List<AudioSourceChannel> {
-        val component = findAudioPlugin() ?: return emptyList()
-        val response = sendToPlugin(component, MSG_GET_AUDIO_CHANNELS) ?: return emptyList()
-        if (!response.getBoolean(KEY_SUCCESS, false)) return emptyList()
-        val raw = response.getString(KEY_AUDIO_CHANNELS_JSON).orEmpty()
-        return runCatching {
-            val array = org.json.JSONArray(raw)
-            buildList {
-                for (i in 0 until array.length()) {
-                    val item = array.getJSONObject(i)
-                    val url = item.optString("url")
-                    if (url.isNotBlank()) {
-                        add(
-                            AudioSourceChannel(
-                                item.optString("name").ifBlank { "Audio" },
-                                url,
-                                item.optString("logo").ifBlank { null },
-                                item.optString("group").ifBlank { null }
-                            )
-                        )
-                    }
-                }
-            }
-        }.getOrDefault(emptyList())
-    }
-
-    private fun findAudioPlugin(): ComponentName? {
-        val intent = Intent(ACTION_PLUGIN_SERVICE)
-        val resolveInfos = context.packageManager.queryIntentServices(intent, PackageManager.GET_META_DATA)
-        return resolveInfos.firstOrNull { info ->
-            info.serviceInfo?.packageName == AUDIO_PLUGIN_PACKAGE
-        }?.serviceInfo?.let { ComponentName(it.packageName, it.name) }
-    }
-
-    private suspend fun sendToPlugin(component: ComponentName, what: Int): Bundle? =
-        withContext(Dispatchers.Main.immediate) {
-            val serviceDeferred = CompletableDeferred<Messenger>()
-            val responseDeferred = CompletableDeferred<Bundle>()
-            val requestId = UUID.randomUUID().toString()
-            var bound = false
-
-            val reply = Messenger(Handler(Looper.getMainLooper()) { message ->
-                val data = message.data ?: Bundle.EMPTY
-                if (data.getString(KEY_REQUEST_ID) == requestId && !responseDeferred.isCompleted) {
-                    responseDeferred.complete(Bundle(data))
-                }
-                true
-            })
-            val connection = object : ServiceConnection {
-                override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-                    if (service == null) serviceDeferred.completeExceptionally(IllegalStateException("No plugin binder"))
-                    else serviceDeferred.complete(Messenger(service))
-                }
-                override fun onServiceDisconnected(name: ComponentName?) {
-                    if (!serviceDeferred.isCompleted) serviceDeferred.completeExceptionally(IllegalStateException("Plugin disconnected"))
-                    if (!responseDeferred.isCompleted) responseDeferred.completeExceptionally(IllegalStateException("Plugin disconnected"))
-                }
-            }
-
-            try {
-                bound = context.bindService(
-                    Intent(ACTION_PLUGIN_SERVICE).apply { this.component = component },
-                    connection,
-                    Context.BIND_AUTO_CREATE
-                )
-                if (!bound) return@withContext null
-                val service = withTimeoutOrNull(5_000L) { serviceDeferred.await() } ?: return@withContext null
-                service.send(Message.obtain(null, what).apply {
-                    replyTo = reply
-                    data = Bundle().apply {
-                        putInt(KEY_API_VERSION, 1)
-                        putString(KEY_REQUEST_ID, requestId)
-                    }
-                })
-                withTimeoutOrNull(15_000L) { responseDeferred.await() }
-            } catch (_: Exception) {
-                null
-            } finally {
-                if (bound) runCatching { context.unbindService(connection) }
-            }
-        }
-
-    private companion object {
-        const val ACTION_PLUGIN_SERVICE = "com.streamvault.plugin.API"
-        const val AUDIO_PLUGIN_PACKAGE = "com.streamvault.plugin.audiosource"
-        const val MSG_GET_AUDIO_CHANNELS = 20
-        const val KEY_API_VERSION = "api_version"
-        const val KEY_REQUEST_ID = "request_id"
-        const val KEY_SUCCESS = "success"
-        const val KEY_AUDIO_CHANNELS_JSON = "audio_channels_json"
     }
 }

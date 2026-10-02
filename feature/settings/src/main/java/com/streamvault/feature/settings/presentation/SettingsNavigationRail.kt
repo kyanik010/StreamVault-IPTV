@@ -63,6 +63,7 @@ public fun SettingsNavigationRail(
     LaunchedEffect(compact, selectedCategory, selectedEntryPlaced) {
         if (compact && selectedEntryPlaced) focusRequester.requestFocus()
     }
+    val visibleCategories = SettingsCategory.entries.filter { it != SettingsCategory.ABOUT && it != SettingsCategory.GUIDE }
     val entry: @Composable (SettingsCategory) -> Unit = { category ->
         val isSelected = selectedCategory == category.legacyId
         TvClickableSurface(
@@ -113,7 +114,7 @@ public fun SettingsNavigationRail(
                 contentPadding = PaddingValues(top = SettingsDesignTokens.space12, bottom = SettingsDesignTokens.space24),
                 verticalArrangement = Arrangement.spacedBy(SettingsDesignTokens.space4),
             ) {
-                items(SettingsCategory.entries, key = { it.legacyId }) { entry(it) }
+                items(visibleCategories, key = { it.legacyId }) { entry(it) }
             }
         }
     } else {
@@ -148,7 +149,7 @@ public fun SettingsNavigationRail(
                     }
                 }
             }
-            items(SettingsCategory.entries, key = { it.legacyId }) { entry(it) }
+            items(visibleCategories, key = { it.legacyId }) { entry(it) }
         }
     }
 }

@@ -39,6 +39,7 @@
     <string name="player_archive_title">أرشيف البرامج</string>
     <string name="player_aspect_ratio_label">النسبة %1$s</string>
     <string name="player_audio">الصوت</string>
+    <string name="player_external_audio">الصوت الخارجي</string>
     <string name="player_auto_play_cancel">إلغاء</string>
     <string name="player_auto_play_countdown">التشغيل بعد %1$d ثانية</string>
     <string name="player_auto_play_play_now">تشغيل الآن</string>

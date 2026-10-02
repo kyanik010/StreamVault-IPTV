@@ -34,6 +34,7 @@
     <string name="player_archive">Archive</string>
     <string name="player_aspect_ratio_label">Aspect %1$s</string>
     <string name="player_audio">Audio</string>
+    <string name="player_external_audio">External Audio</string>
     <string name="player_chapters">Chapters</string>
     <string name="player_chapter_count">%1$d chapters</string>
     <string name="player_chapter_label">Chapter %1$d</string>

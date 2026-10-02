@@ -188,7 +188,21 @@ class Media3PlayerEngine @Inject constructor(
         private set
     private var isDisposed = false
     private var exoPlayer: ExoPlayer? = null
-    private val externalAudioController = ExternalAudioController(context, okHttpClient)
+    private val externalAudioController by lazy {
+        ExternalAudioController(
+            context = context,
+            httpClient = okHttpClient,
+            videoClockProvider = ::clockSnapshot,
+            videoIsPlayingProvider = { _isPlaying.value },
+            onExternalAudioFailure = ::restoreMainAudioAfterExternalFailure,
+            onExternalAudioReady = ::disableMainAudioForExternalReady,
+            dataSourceFactoryProvider = dataSourceFactoryProvider,
+            mediaSourceFactory = mediaSourceFactory,
+            renderersFactoryProvider = ::buildRenderersFactory,
+            vodHttpProtocolModeProvider = { requestedVodHttpProtocolMode }
+        )
+    }
+    private var externalAudioPreviousMainAudioEnabled: Boolean? = null
     private var audioOnlyMode = false
     private var mediaSession: MediaSession? = null
     private var requestedAudioDecoderMode: DecoderMode = DecoderMode.AUTO
@@ -460,13 +474,52 @@ class Media3PlayerEngine @Inject constructor(
     override val selectedAudioSource: StateFlow<AudioSourceChannel?> get() = externalAudioController.selected
     override val audioSourceSyncMs: StateFlow<Int> get() = externalAudioController.syncMs
     override suspend fun loadAudioSourcePlaylist(url: String): Result<Int> = externalAudioController.load(url)
-    override fun playAudioSource(channel: AudioSourceChannel) = externalAudioController.play(channel)
-    override fun stopAudioSource() = externalAudioController.stop()
+
+    override fun playAudioSource(channel: AudioSourceChannel) {
+        playAudioSource(channel, StreamInfo(url = channel.url, title = channel.name))
+    }
+
+    override fun playAudioSource(channel: AudioSourceChannel, streamInfo: StreamInfo) {
+        if (externalAudioPreviousMainAudioEnabled == null) {
+            externalAudioPreviousMainAudioEnabled = isMainAudioEnabled()
+        }
+        // Keep the main audio audible until the secondary player reaches READY.
+        externalAudioController.play(channel, streamInfo)
+    }
+
+    override fun stopAudioSource() {
+        externalAudioController.stop()
+        restoreMainAudioAfterExternalFailure()
+    }
     override fun setAudioSourceSyncMs(value: Int) = externalAudioController.setSyncMs(value)
     override fun syncAudioSourceToVideo(videoPositionMs: Long) = externalAudioController.syncToVideo(videoPositionMs)
 
+    private fun disableMainAudioForExternalReady() {
+        setMainAudioEnabled(false)
+    }
+
+    private fun isMainAudioEnabled(): Boolean {
+        val player = exoPlayer ?: return true
+        return C.TRACK_TYPE_AUDIO !in player.trackSelectionParameters.disabledTrackTypes
+    }
+
+    private fun setMainAudioEnabled(enabled: Boolean) {
+        exoPlayer?.let { player ->
+            player.trackSelectionParameters = player.trackSelectionParameters
+                .buildUpon()
+                .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, !enabled)
+                .build()
+        }
+    }
+
+    private fun restoreMainAudioAfterExternalFailure() {
+        externalAudioPreviousMainAudioEnabled?.let(::setMainAudioEnabled)
+        externalAudioPreviousMainAudioEnabled = null
+    }
+
     override fun prepare(streamInfo: StreamInfo, autoPlay: Boolean) {
         if (ensureNotDisposed("prepare")) return
+        if (externalAudioController.isActive()) stopAudioSource()
         if (!vodTrackPreferencesConfiguredForNextPrepare) {
             trackController.setVodTrackPreferences(exoPlayer, null)
         }
@@ -516,6 +569,7 @@ class Media3PlayerEngine @Inject constructor(
     override fun play() {
         if (audioFocusController.requestAudioFocusIfNeeded()) {
             exoPlayer?.playWhenReady = true
+            externalAudioController.onVideoPlay()
             syncTimeshiftState()
         }
     }
@@ -523,11 +577,13 @@ class Media3PlayerEngine @Inject constructor(
     override fun pause() {
         retryJob?.cancel()
         exoPlayer?.playWhenReady = false
+        externalAudioController.onVideoPause()
         audioFocusController.onPauseOrStop()
     }
 
     override fun stop() {
         retryJob?.cancel()
+        stopAudioSource()
         exoPlayer?.stop()
         _playbackState.value = PlaybackState.IDLE
         _isPlaying.value = false
@@ -549,6 +605,7 @@ class Media3PlayerEngine @Inject constructor(
             return
         }
         exoPlayer?.seekTo(positionMs)
+        externalAudioController.syncToVideo(positionMs)
     }
 
     override fun seekForward(ms: Long) {
@@ -565,6 +622,7 @@ class Media3PlayerEngine @Inject constructor(
                     player.currentPosition + ms
                 }
                 player.seekTo(newPosition)
+                externalAudioController.syncToVideo(newPosition)
             }
             return
         }
@@ -576,6 +634,7 @@ class Media3PlayerEngine @Inject constructor(
                 player.currentPosition + ms
             }
             player.seekTo(newPosition)
+            externalAudioController.syncToVideo(newPosition)
         }
     }
 
@@ -584,10 +643,13 @@ class Media3PlayerEngine @Inject constructor(
             val liveEdge = _timeshiftState.value.liveEdgePositionMs
             val target = (liveEdge - ms).coerceAtLeast(0L)
             switchToTimeshiftSnapshot(positionMs = target, autoPlay = true)
+            externalAudioController.syncToVideo(target)
             return
         }
         exoPlayer?.let { player ->
-            player.seekTo((player.currentPosition - ms).coerceAtLeast(0L))
+            val target = (player.currentPosition - ms).coerceAtLeast(0L)
+            player.seekTo(target)
+            externalAudioController.syncToVideo(target)
         }
     }
 
@@ -976,7 +1038,7 @@ class Media3PlayerEngine @Inject constructor(
 
     override fun release() {
         if (isDisposed) return
-        externalAudioController.stop()
+        stopAudioSource()
         isDisposed = true
         liveTimeshiftManager.detachComponentCallbacks()
         resetEngineState(restartCollectors = false)
@@ -987,6 +1049,7 @@ class Media3PlayerEngine @Inject constructor(
             Log.w(TAG, "resetForReuse ignored after terminal release")
             return
         }
+        stopAudioSource()
         resetEngineState(restartCollectors = true)
     }
 
@@ -2724,11 +2787,24 @@ class Media3PlayerEngine @Inject constructor(
 private class ExternalAudioController(
     private val context: Context,
     private val httpClient: OkHttpClient,
+    private val videoClockProvider: () -> PlaybackClockSnapshot,
+    private val videoIsPlayingProvider: () -> Boolean,
+    private val onExternalAudioFailure: () -> Unit,
+    private val onExternalAudioReady: () -> Unit,
+    private val dataSourceFactoryProvider: PlayerDataSourceFactoryProvider,
+    private val mediaSourceFactory: PlayerMediaSourceFactory,
+    private val renderersFactoryProvider: () -> DefaultRenderersFactory,
+    private val vodHttpProtocolModeProvider: () -> VodHttpProtocolMode
 ) {
+    companion object {
+        private const val TAG = "ExternalAudioController"
+    }
     private val prefs = context.getSharedPreferences("streamvault_audio_source", Context.MODE_PRIVATE)
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val handler = Handler(Looper.getMainLooper())
     private var player: ExoPlayer? = null
+    private var monitorJob: Job? = null
+    private var sessionGeneration = 0L
     private val _channels = MutableStateFlow<List<AudioSourceChannel>>(emptyList())
     val channels: StateFlow<List<AudioSourceChannel>> = _channels.asStateFlow()
     private val _selected = MutableStateFlow<AudioSourceChannel?>(null)
@@ -2738,8 +2814,12 @@ private class ExternalAudioController(
 
     init {
         val savedUrl = prefs.getString("m3u_url", "").orEmpty()
-        if (savedUrl.isNotBlank()) scope.launch { load(savedUrl) }
+        if (savedUrl.isNotBlank()) scope.launch {
+            load(savedUrl)
+        }
     }
+
+    fun isActive(): Boolean = _selected.value != null && player != null
 
     suspend fun load(rawUrl: String): Result<Int> = withContext(Dispatchers.IO) {
         runCatching {
@@ -2760,35 +2840,132 @@ private class ExternalAudioController(
         }
     }
 
-    fun play(channel: AudioSourceChannel) {
-        val selector = DefaultTrackSelector(context).apply {
-            parameters = buildUponParameters()
-                .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, true)
-                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
-                .build()
-        }
+    fun play(channel: AudioSourceChannel, streamInfo: StreamInfo) {
+        val generation = ++sessionGeneration
+        monitorJob?.cancel()
+
         handler.post {
+            if (generation != sessionGeneration) return@post
             player?.release()
+
+            var externalPlayer: ExoPlayer? = null
+            // Keep external audio independent from the main video player.
             val dataSource = DefaultHttpDataSource.Factory()
                 .setUserAgent("StreamVault/Audio")
                 .setConnectTimeoutMs(15_000)
                 .setReadTimeoutMs(30_000)
-            player = ExoPlayer.Builder(context)
+            val mediaSource = DefaultMediaSourceFactory(dataSource)
+                .createMediaSource(MediaItem.fromUri(streamInfo.url))
+
+            val selector = DefaultTrackSelector(context).apply {
+                parameters = buildUponParameters()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, true)
+                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                    .build()
+            }
+            val external = ExoPlayer.Builder(context, renderersFactoryProvider())
                 .setTrackSelector(selector)
-                .setMediaSourceFactory(DefaultMediaSourceFactory(dataSource))
+                .setAudioAttributes(
+                    Media3AudioAttributes.Builder()
+                        .setUsage(C.USAGE_MEDIA)
+                        .setContentType(C.AUDIO_CONTENT_TYPE_UNKNOWN)
+                        .build(),
+                    false
+                )
                 .build()
-                .also {
-                    it.setMediaItem(MediaItem.fromUri(channel.url))
-                    it.prepare()
-                    it.playWhenReady = true
+                .also { p ->
+                    externalPlayer = p
+                    p.volume = 0f
+                    p.addListener(object : Player.Listener {
+                        override fun onPlaybackStateChanged(playbackState: Int) {
+                            if (generation != sessionGeneration) return
+                            when (playbackState) {
+                                Player.STATE_READY -> {
+                                    val hasAudioTrack = p.currentTracks.groups.any { group ->
+                                        group.type == C.TRACK_TYPE_AUDIO &&
+                                            (0 until group.length).any(group::isTrackSelected)
+                                    }
+                                    if (!hasAudioTrack) {
+                                        Log.e(
+                                            TAG,
+                                            "external-audio ready-without-audio url=${streamInfo.url}"
+                                        )
+                                        stopForFailure(generation)
+                                        return
+                                    }
+
+                                    p.playWhenReady = videoIsPlayingProvider()
+                                    syncPlayerToVideo(p)
+                                    onExternalAudioReady()
+                                    p.volume = 1f
+                                }
+
+                                Player.STATE_IDLE,
+                                Player.STATE_BUFFERING,
+                                Player.STATE_ENDED -> Unit
+                            }
+                        }
+
+                        override fun onPlayerError(error: PlaybackException) {
+                            if (generation != sessionGeneration) return
+                            var cursor: Throwable? = error
+                            var httpError: androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException? = null
+                            val causeNames = mutableListOf<String>()
+                            repeat(6) {
+                                val cause = cursor ?: return@repeat
+                                causeNames += cause::class.java.simpleName.ifBlank { cause::class.java.name }
+                                if (httpError == null && cause is androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException) {
+                                    httpError = cause
+                                }
+                                cursor = cause.cause
+                            }
+                            val causeTypes = causeNames.joinToString(" <- ")
+                            Log.e(
+                                TAG,
+                                "external-audio playback failed code=${error.errorCodeName} " +
+                                    "httpResponse=${httpError?.responseCode ?: -1} " +
+                                    "causeTypes=${causeTypes}"
+                            )
+                            stopForFailure(generation)
+                        }
+                    })
+                    p.setMediaSource(mediaSource)
+                    p.prepare()
+                    p.playWhenReady = videoIsPlayingProvider()
                 }
+            player = external
         }
+
         _selected.value = channel
-        prefs.edit().putString("selected_url", channel.url).apply()
+        prefs.edit().putString("selected_url", streamInfo.url).apply()
+        monitorJob = scope.launch {
+            while (generation == sessionGeneration) {
+                delay(500L)
+                if (generation != sessionGeneration) break
+                val current = player ?: continue
+                current.playWhenReady = videoIsPlayingProvider()
+                syncPlayerToVideo(current)
+            }
+        }
+    }
+
+    fun onVideoPlay() {
+        handler.post { player?.playWhenReady = true }
+    }
+
+    fun onVideoPause() {
+        handler.post { player?.playWhenReady = false }
     }
 
     fun stop() {
+        sessionGeneration++
+        monitorJob?.cancel()
+        monitorJob = null
+        val stopGeneration = sessionGeneration
         handler.post {
+            // A newer play() may already have installed another player. Never let
+            // this queued stop operation release that newer external-audio session.
+            if (stopGeneration != sessionGeneration) return@post
             player?.stop()
             player?.release()
             player = null
@@ -2797,15 +2974,115 @@ private class ExternalAudioController(
         prefs.edit().remove("selected_url").apply()
     }
 
+    private fun stopForFailure(generation: Long) {
+        if (generation != sessionGeneration) return
+        sessionGeneration++
+        monitorJob?.cancel()
+        monitorJob = null
+        val failureGeneration = sessionGeneration
+        handler.post {
+            // The failed player must not tear down a newer channel selected while
+            // the failure cleanup was queued on the main thread.
+            if (failureGeneration != sessionGeneration) return@post
+            player?.stop()
+            player?.release()
+            player = null
+        }
+        _selected.value = null
+        prefs.edit().remove("selected_url").apply()
+        onExternalAudioFailure()
+    }
+
     fun setSyncMs(value: Int) {
-        val clamped = value.coerceIn(-5000, 5000)
+        val clamped = value.coerceIn(-5_000, 5_000)
         _syncMs.value = clamped
         prefs.edit().putInt("sync_ms", clamped).apply()
+        handler.post { player?.let(::syncPlayerToVideo) }
     }
 
     fun syncToVideo(videoPositionMs: Long) {
-        val target = (videoPositionMs - _syncMs.value).coerceAtLeast(0L)
-        handler.post { player?.seekTo(target) }
+        handler.post {
+            player?.let { syncPlayerToVideo(it, explicitVideoPositionMs = videoPositionMs) }
+        }
+    }
+
+    private fun syncPlayerToVideo(
+        external: ExoPlayer,
+        explicitVideoPositionMs: Long? = null
+    ) {
+        if (external.playbackState == Player.STATE_IDLE) return
+        val videoClock = videoClockProvider()
+        if (!videoClock.available) return
+
+        if (videoClock.isLive) {
+            val audioClock = audioClockSnapshot(external)
+            val videoWall = videoClock.playbackWallClockMs
+            val audioWall = audioClock.playbackWallClockMs
+            if (videoWall != null && audioWall != null) {
+                val driftMs = audioWall - videoWall - _syncMs.value
+                when {
+                    kotlin.math.abs(driftMs) >= 750L -> {
+                        external.playbackParameters = PlaybackParameters(1f)
+                        seekLiveToVideoClock(external, videoClock.liveOffsetMs ?: 0L)
+                    }
+                    kotlin.math.abs(driftMs) >= 250L -> {
+                        external.playbackParameters = PlaybackParameters(if (driftMs > 0L) 0.995f else 1.005f)
+                    }
+                    else -> external.playbackParameters = PlaybackParameters(1f)
+                }
+                return
+            }
+            if (audioClock.available && videoClock.liveOffsetMs != null) {
+                seekLiveToVideoClock(external, videoClock.liveOffsetMs)
+            }
+            return
+        }
+
+        val videoPosition = explicitVideoPositionMs ?: videoClock.positionMs
+        val target = (videoPosition - _syncMs.value).coerceAtLeast(0L)
+        val driftMs = external.currentPosition - target
+        when {
+            kotlin.math.abs(driftMs) >= 750L -> {
+                external.playbackParameters = PlaybackParameters(1f)
+                external.seekTo(target)
+            }
+            kotlin.math.abs(driftMs) >= 250L -> {
+                external.playbackParameters = PlaybackParameters(if (driftMs > 0L) 0.995f else 1.005f)
+            }
+            else -> external.playbackParameters = PlaybackParameters(1f)
+        }
+    }
+
+    private fun seekLiveToVideoClock(external: ExoPlayer, videoLiveOffsetMs: Long) {
+        val targetLiveOffset = (videoLiveOffsetMs + _syncMs.value).coerceAtLeast(0L)
+        val duration = external.duration
+        if (duration != C.TIME_UNSET && duration > 0L) {
+            external.seekTo((duration - targetLiveOffset).coerceAtLeast(0L))
+        } else {
+            external.seekToDefaultPosition()
+        }
+    }
+
+    private fun audioClockSnapshot(external: ExoPlayer): PlaybackClockSnapshot {
+        val timeline = external.currentTimeline
+        val isLive = runCatching { external.isCurrentMediaItemLive }.getOrDefault(false)
+        val liveOffset = runCatching { external.currentLiveOffset }
+            .getOrNull()
+            ?.takeUnless { it == C.TIME_UNSET }
+        val wallClock = if (isLive && liveOffset != null && !timeline.isEmpty) {
+            runCatching {
+                val window = Timeline.Window()
+                timeline.getWindow(external.currentMediaItemIndex, window)
+                window.currentUnixTimeMs - liveOffset
+            }.getOrNull()
+        } else null
+        return PlaybackClockSnapshot(
+            positionMs = external.currentPosition,
+            isLive = isLive,
+            liveOffsetMs = liveOffset,
+            playbackWallClockMs = wallClock,
+            available = external.currentMediaItem != null
+        )
     }
 
     private fun parseM3u(text: String): List<AudioSourceChannel> {

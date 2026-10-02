@@ -74,6 +74,7 @@ internal fun BoxScope.PlayerLiveOverlayHost(
     showDiagnostics: Boolean,
     videoFormat: VideoFormat,
     onOpenModal: (PlayerModal) -> Unit,
+    onOpenAudioSource: () -> Unit,
     onEnterPictureInPicture: () -> Unit,
     onRunRecordingAction: (() -> Unit) -> Unit,
     onOpenCastRouteChooser: () -> Unit,
@@ -193,6 +194,7 @@ internal fun BoxScope.PlayerLiveOverlayHost(
                 viewModel.closeChannelInfoOverlay()
                 viewModel.openEpgOverlay()
             },
+            onOpenAudioSource = onOpenAudioSource,
             onOpenLastGroup = {
                 viewModel.closeChannelInfoOverlay()
                 viewModel.openLastVisitedCategory()
