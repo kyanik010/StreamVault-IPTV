@@ -41,6 +41,7 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
@@ -59,6 +60,7 @@ fun AudioLibraryScreen(
     val context = LocalContext.current
     var selectedId by remember { mutableStateOf<Long?>(null) }
     var isPlaying by remember { mutableStateOf(false) }
+    var playbackError by remember { mutableStateOf<String?>(null) }
 
     val httpFactory = remember(context) {
         DefaultHttpDataSource.Factory()
@@ -92,6 +94,12 @@ fun AudioLibraryScreen(
                     }
                     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                         selectedId = mediaItem?.mediaId?.toLongOrNull()
+                        playbackError = null
+                    }
+
+                    override fun onPlayerError(error: PlaybackException) {
+                        isPlaying = false
+                        playbackError = error.message ?: "تعذر تشغيل مصدر الصوت."
                     }
                 })
             }
@@ -102,18 +110,35 @@ fun AudioLibraryScreen(
     }
 
     fun play(source: ExternalAudioSource) {
-        if (source.isExpired()) return
+        playbackError = null
+        val playbackUrl = if (!source.isExpired() && source.resolvedUrl.isNotBlank()) {
+            source.resolvedUrl
+        } else {
+            source.sourceUrl
+        }
+        if (playbackUrl.isBlank()) {
+            playbackError = "رابط مصدر الصوت غير صالح."
+            return
+        }
+
         httpFactory.setDefaultRequestProperties(source.headers)
         source.userAgent?.takeIf { it.isNotBlank() }?.let(httpFactory::setUserAgent)
+
         val mediaItem = MediaItem.Builder()
             .setMediaId(source.channelId.toString())
-            .setUri(source.resolvedUrl)
+            .setUri(playbackUrl)
             .setTag(source)
             .build()
-        player.setMediaItem(mediaItem)
-        player.prepare()
-        player.play()
-        selectedId = source.channelId
+
+        runCatching {
+            player.setMediaItem(mediaItem)
+            player.prepare()
+            player.play()
+            selectedId = source.channelId
+        }.onFailure { error ->
+            isPlaying = false
+            playbackError = error.message ?: "تعذر تشغيل مصدر الصوت."
+        }
     }
 
     Column(
@@ -130,6 +155,13 @@ fun AudioLibraryScreen(
             text = "مكتبة صوتية جاهزة من نفس اشتراك IPTV",
             style = MaterialTheme.typography.bodyMedium
         )
+
+        playbackError?.let { error ->
+            Text(
+                text = error,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
 
         when {
             state.loading -> Text("جاري قراءة مكتبة Audio...")
