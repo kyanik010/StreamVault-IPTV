@@ -98,11 +98,13 @@ class AudioOnlyPlayerController(
 
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_READY) {
-                    val hasAudio = newPlayer.currentTracks.groups.any { group ->
-                        group.type == C.TRACK_TYPE_AUDIO &&
-                            (0 until group.length).any(group::isTrackSelected)
+                    // Do not require a selected audio track at the exact READY callback.
+                    // Media3 can publish READY before track selection state is fully exposed.
+                    // Requiring isTrackSelected here could stop a valid audio stream immediately.
+                    val hasAudioTrack = newPlayer.currentTracks.groups.any { group ->
+                        group.type == C.TRACK_TYPE_AUDIO && group.length > 0
                     }
-                    if (!hasAudio) {
+                    if (!hasAudioTrack) {
                         _isPlaying.value = false
                         _error.value = "المصدر المحدد لا يحتوي على مسار صوتي قابل للتشغيل."
                         newPlayer.stop()
