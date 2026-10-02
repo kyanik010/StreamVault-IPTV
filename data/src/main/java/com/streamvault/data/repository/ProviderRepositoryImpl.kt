@@ -1390,7 +1390,7 @@ class ProviderRepositoryImpl @Inject constructor(
     ): Result<Unit> {
         return try {
         val pendingEdit = target.pendingEdit
-        if (pendingEdit == null) {
+        val syncResult = if (pendingEdit == null) {
             syncManager.sync(
                 providerId = target.providerData.id,
                 force = false,
@@ -1411,6 +1411,29 @@ class ProviderRepositoryImpl @Inject constructor(
                 afterCatalogApply = { promoteProviderEdit(pendingEdit) }
             )
         }
+
+        // Initial Xtream onboarding must not finish after only the Live TV/audio/category-shell
+        // phase. The user expects the same ready-to-browse catalog that a manual Xtream sync
+        // produces, so drain the queued Movies and Series indexes before completing onboarding.
+        if (syncResult is Result.Success && target.providerData.type == ProviderType.XTREAM_CODES) {
+            onProgress?.invoke("جاري مزامنة وتحميل الأفلام...")
+            syncManager.processQueuedXtreamIndexJobs(
+                providerId = target.providerData.id,
+                section = ContentType.MOVIE,
+                force = true,
+                onProgress = null
+            )
+
+            onProgress?.invoke("جاري مزامنة وتحميل المسلسلات...")
+            syncManager.processQueuedXtreamIndexJobs(
+                providerId = target.providerData.id,
+                section = ContentType.SERIES,
+                force = true,
+                onProgress = null
+            )
+        }
+
+        syncResult
     } catch (error: kotlinx.coroutines.CancellationException) {
         target.pendingEdit?.let { pendingEdit ->
             withContext(NonCancellable) {
