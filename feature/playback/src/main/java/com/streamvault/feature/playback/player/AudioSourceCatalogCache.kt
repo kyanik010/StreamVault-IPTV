@@ -29,10 +29,25 @@ class AudioSourceCatalogCache @Inject constructor(
         val preparedByChannel = prepared.associateBy { it.channelId }
         preparedCache[providerId] = preparedByChannel
 
-        val channels = channelRepository.getChannels(providerId)
-            .first()
-            .filter { preparedByChannel.containsKey(it.id) }
+        // Build the picker directly from the persistent Audio library. Do not wait for
+        // the Live TV Flow here: the Audio library is already prepared in Room.
+        val channels = prepared
+            .asSequence()
+            .filter { it.sourceUrl.isNotBlank() || it.resolvedUrl.isNotBlank() }
+            .map { source ->
+                Channel(
+                    id = source.channelId,
+                    name = source.name,
+                    canonicalName = source.name,
+                    logoUrl = source.logoUrl,
+                    groupTitle = source.groupTitle,
+                    streamUrl = source.sourceUrl.ifBlank { source.resolvedUrl },
+                    providerId = source.providerId,
+                    streamId = source.streamId
+                )
+            }
             .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
+            .toList()
 
         cache[providerId] = channels
         return channels
