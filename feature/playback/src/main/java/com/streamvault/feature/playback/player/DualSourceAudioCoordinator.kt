@@ -99,7 +99,13 @@ class DualSourceAudioCoordinator @Inject constructor(
         engine = videoEngine
         if (channel.streamUrl.isBlank()) return Result.error("رابط مصدر الصوت غير صالح.")
 
-        val prepared = audioSourceCatalogCache.getPrepared(currentProviderId, channel.id)
+        // Selection is allowed to read the already-persisted Room library into memory,
+        // but it must never resolve/refresh a stream URL or make an Xtream request.
+        var prepared = audioSourceCatalogCache.getPrepared(currentProviderId, channel.id)
+        if (prepared == null && currentProviderId > 0L) {
+            audioSourceCatalogCache.warm(currentProviderId)
+            prepared = audioSourceCatalogCache.getPrepared(currentProviderId, channel.id)
+        }
         if (prepared == null) {
             return Result.error("مصدر الصوت غير موجود في مكتبة Audio الجاهزة.")
         }
