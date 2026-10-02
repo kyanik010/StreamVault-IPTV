@@ -30,6 +30,7 @@ data class SyncProgress(
  */
 enum class Section {
     LIVE,
+    AUDIO,
     VOD,
     SERIES
 }
