@@ -2895,8 +2895,10 @@ private class ExternalAudioController(
                                         return
                                     }
 
+                                    // Audio source is independent from the video clock.
+                                    // The video audio is muted only after the external source is READY.
+                                    // Synchronization is intentionally manual via the Sync action.
                                     p.playWhenReady = videoIsPlayingProvider()
-                                    syncPlayerToVideo(p)
                                     onExternalAudioReady()
                                     p.volume = 1f
                                 }
@@ -2955,7 +2957,6 @@ private class ExternalAudioController(
                 if (generation != sessionGeneration) break
                 val current = player ?: continue
                 current.playWhenReady = videoIsPlayingProvider()
-                syncPlayerToVideo(current)
             }
         }
     }
@@ -3008,7 +3009,8 @@ private class ExternalAudioController(
         val clamped = value.coerceIn(-5_000, 5_000)
         _syncMs.value = clamped
         prefs.edit().putInt("sync_ms", clamped).apply()
-        handler.post { player?.let(::syncPlayerToVideo) }
+        // Offset changes only update the manual sync target. They do not reposition playback
+        // until the user explicitly presses Sync.
     }
 
     fun syncToVideo(videoPositionMs: Long) {
