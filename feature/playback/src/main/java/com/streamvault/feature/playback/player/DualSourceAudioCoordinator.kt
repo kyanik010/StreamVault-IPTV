@@ -103,13 +103,13 @@ class DualSourceAudioCoordinator @Inject constructor(
         if (prepared == null) {
             return Result.error("مصدر الصوت غير موجود في مكتبة Audio الجاهزة.")
         }
-        if (prepared.isExpired()) {
-            return Result.error("مصدر الصوت منتهي. ستتم إعادة تجهيزه مع مزامنة الاشتراك.")
-        }
+        val playbackUrl = prepared.resolvedUrl
+            .takeIf { it.isNotBlank() && !prepared.isExpired() }
+            ?: prepared.sourceUrl
 
-        val resolvedStreamInfo = prepared?.let {
+        val resolvedStreamInfo = prepared.let {
             StreamInfo(
-                url = it.resolvedUrl,
+                url = playbackUrl,
                 title = it.name,
                 headers = it.headers,
                 userAgent = it.userAgent,
