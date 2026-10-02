@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.first
  * In-memory view of the persistent External Audio library.
  *
  * The persistent source of truth is Room, prepared once after Live TV sync. The memory cache
- * only avoids repeated Room mapping while the process is alive.
+ * is populated from Room and never resolves or refreshes a stream URL.
  */
 @Singleton
 class AudioSourceCatalogCache @Inject constructor(
