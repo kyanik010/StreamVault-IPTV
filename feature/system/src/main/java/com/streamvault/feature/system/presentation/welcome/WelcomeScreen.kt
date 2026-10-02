@@ -339,7 +339,7 @@ private fun sectionColor(section: Section): Color = when (section) {
 
 private fun sectionLabelRes(section: Section): Int = when (section) {
     Section.LIVE -> R.string.sync_section_live
-    Section.AUDIO -> R.string.sync_section_audio
+    Section.AUDIO -> R.string.sync_section_live
     Section.VOD -> R.string.sync_section_vod
     Section.SERIES -> R.string.sync_section_series
 }
