@@ -332,12 +332,14 @@ private fun WelcomeStartCard(
 
 private fun sectionColor(section: Section): Color = when (section) {
     Section.LIVE -> AppColors.Brand
+    Section.AUDIO -> AppColors.BrandMuted
     Section.VOD -> AppColors.Success
     Section.SERIES -> AppColors.Warning
 }
 
 private fun sectionLabelRes(section: Section): Int = when (section) {
     Section.LIVE -> R.string.sync_section_live
+    Section.AUDIO -> R.string.sync_section_audio
     Section.VOD -> R.string.sync_section_vod
     Section.SERIES -> R.string.sync_section_series
 }
