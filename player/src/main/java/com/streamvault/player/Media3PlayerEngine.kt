@@ -482,9 +482,8 @@ class Media3PlayerEngine @Inject constructor(
         if (externalAudioPreviousMainAudioEnabled == null) {
             externalAudioPreviousMainAudioEnabled = isMainAudioEnabled()
         }
-        // Mute the video's own audio immediately when an external source is selected.
-        // If the external source fails, the failure/stop path restores the previous state.
-        setMainAudioEnabled(false)
+        // Keep Player A untouched while Player B is starting. Player B will
+        // mute Player A only after it reaches STATE_READY with a real audio track.
         externalAudioController.play(channel, streamInfo)
     }
 
@@ -2813,13 +2812,6 @@ private class ExternalAudioController(
     private val _syncMs = MutableStateFlow(prefs.getInt("sync_ms", 0))
     val syncMs: StateFlow<Int> = _syncMs.asStateFlow()
 
-    init {
-        val savedUrl = prefs.getString("m3u_url", "").orEmpty()
-        if (savedUrl.isNotBlank()) scope.launch {
-            load(savedUrl)
-        }
-    }
-
     fun isActive(): Boolean = _selected.value != null && player != null
 
     suspend fun load(rawUrl: String): Result<Int> = withContext(Dispatchers.IO) {
@@ -2833,7 +2825,6 @@ private class ExternalAudioController(
             }
             val parsed = parseM3u(body)
             require(parsed.isNotEmpty()) { "No audio channels found in M3U" }
-            prefs.edit().putString("m3u_url", url).apply()
             _channels.value = parsed
             val selectedUrl = prefs.getString("selected_url", null)
             _selected.value = parsed.firstOrNull { it.url == selectedUrl }
@@ -2885,8 +2876,7 @@ private class ExternalAudioController(
                             when (playbackState) {
                                 Player.STATE_READY -> {
                                     val hasAudioTrack = p.currentTracks.groups.any { group ->
-                                        group.type == C.TRACK_TYPE_AUDIO &&
-                                            (0 until group.length).any(group::isTrackSelected)
+                                        group.type == C.TRACK_TYPE_AUDIO && group.length > 0
                                     }
                                     if (!hasAudioTrack) {
                                         Log.e(
