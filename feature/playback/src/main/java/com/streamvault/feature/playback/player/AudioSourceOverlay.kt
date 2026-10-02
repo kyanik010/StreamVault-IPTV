@@ -128,9 +128,7 @@ internal fun AudioSourceOverlay(
                     valueRange = -5000f..5000f,
                     steps = 199
                 )
-                if (state.loading) {
-                    Text("Loading audio channels…", color = Color.White)
-                } else if (state.error != null && state.channels.isEmpty()) {
+                if (state.error != null && state.channels.isEmpty()) {
                     Text(state.error, color = Color.White)
                 } else {
                     LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
