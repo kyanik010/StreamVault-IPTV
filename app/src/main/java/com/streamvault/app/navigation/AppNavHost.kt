@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
 import com.streamvault.app.navigation.graph.registerLiveGraph
 import com.streamvault.app.ui.components.shell.AppNavigationChrome
 import com.streamvault.app.ui.components.shell.AppScreenScaffold
@@ -23,14 +22,12 @@ import com.streamvault.feature.provider.api.ProviderBackupPreviewRequest
 import com.streamvault.feature.provider.navigation.registerProviderGraph
 import com.streamvault.app.navigation.toLivePlayerRequest
 import com.streamvault.app.navigation.toPlayerNavigationRequest
-import com.streamvault.feature.catalog.api.CatalogChannelPlaybackContext
 import com.streamvault.feature.catalog.api.CatalogDashboardShelfCustomizationContent
 import com.streamvault.feature.catalog.api.CatalogNavigationChrome
 import com.streamvault.feature.catalog.api.CatalogPlatformHost
 import com.streamvault.feature.catalog.api.CatalogScaffoldContent
 import com.streamvault.feature.catalog.navigation.registerCatalogGraph
 import com.streamvault.feature.settings.presentation.DashboardShelfCustomizationDialog
-import com.streamvault.app.audio.AudioLibraryScreen
 import com.streamvault.domain.model.ContentType
 import com.streamvault.feature.system.api.SystemScaffoldContent
 import com.streamvault.feature.system.navigation.SystemRoutePatterns
@@ -83,10 +80,7 @@ internal fun AppNavHost(
             }
         )
         registerLiveGraph(actions, onTopLevelDestinationRequested)
-        composable(AppRoutePatterns.AUDIO) {
-            AudioLibraryScreen()
-        }
-                registerCatalogGraph(
+        registerCatalogGraph(
             actions = actions,
             platformHost = catalogPlatformHost,
             scaffold = appCatalogScaffold(onTopLevelDestinationRequested),
@@ -105,12 +99,8 @@ internal fun AppNavHost(
                     )
                 )
             },
-            onPlayMovie = { movie, returnDestination ->
-                actions.openPlayer(movie.toPlayerNavigationRequest(returnDestination))
-            },
-            onPlayEpisode = { episode, returnDestination ->
-                actions.openPlayer(episode.toPlayerNavigationRequest(returnDestination))
-            },
+            onPlayMovie = { movie, returnDestination -> actions.openPlayer(movie.toPlayerNavigationRequest(returnDestination)) },
+            onPlayEpisode = { episode, returnDestination -> actions.openPlayer(episode.toPlayerNavigationRequest(returnDestination)) },
             onPlayHistory = { history, returnDestination ->
                 when (history.contentType) {
                     ContentType.SERIES -> actions.navigate(
@@ -120,9 +110,7 @@ internal fun AppNavHost(
                     ContentType.LIVE,
                     ContentType.MOVIE,
                     ContentType.VOD,
-                    ContentType.SERIES_EPISODE -> actions.openPlayer(
-                        history.toPlayerNavigationRequest(returnDestination)
-                    )
+                    ContentType.SERIES_EPISODE -> actions.openPlayer(history.toPlayerNavigationRequest(returnDestination))
                 }
             },
             consumeMoviePresentationHint = payloads::consumeMoviePresentationHint,
@@ -136,28 +124,14 @@ internal fun AppNavHost(
             navigationDestinations = navigationDestinations,
             settingsContent = { backupUri, platformHost, destinations, onBack ->
                 SettingsScreen(
-                    onNavigate = { route ->
-                        AppRouteCodec.decode(route)?.let(onTopLevelDestinationRequested)
-                    },
+                    onNavigate = { route -> AppRouteCodec.decode(route)?.let(onTopLevelDestinationRequested) },
                     currentRoute = AppRoutePatterns.SETTINGS,
                     platformHost = platformHost,
                     navigationDestinations = destinations,
                     onBack = onBack,
-                    onAddProvider = dropUnlessResumed {
-                        actions.navigate(AppDestination.ProviderSetup())
-                    },
-                    onEditProvider = { provider ->
-                        actions.navigate(
-                            AppDestination.ProviderSetup(providerId = provider.id),
-                            NavigationOptions(launchSingleTop = true)
-                        )
-                    },
-                    onNavigateToParentalControl = { providerId ->
-                        actions.navigate(
-                            AppDestination.ParentalControlGroups(providerId),
-                            NavigationOptions(launchSingleTop = true)
-                        )
-                    },
+                    onAddProvider = dropUnlessResumed { actions.navigate(AppDestination.ProviderSetup()) },
+                    onEditProvider = { provider -> actions.navigate(AppDestination.ProviderSetup(providerId = provider.id), NavigationOptions(launchSingleTop = true)) },
+                    onNavigateToParentalControl = { providerId -> actions.navigate(AppDestination.ParentalControlGroups(providerId), NavigationOptions(launchSingleTop = true)) },
                     initialBackupImportUri = backupUri,
                     onCloseApp = onCloseApp
                 )
@@ -165,9 +139,7 @@ internal fun AppNavHost(
             parentalControlContent = { onBack, destinations ->
                 ParentalControlGroupScreen(
                     currentRoute = AppRoutePatterns.SETTINGS,
-                    onNavigate = { route ->
-                        AppRouteCodec.decode(route)?.let(onTopLevelDestinationRequested)
-                    },
+                    onNavigate = { route -> AppRouteCodec.decode(route)?.let(onTopLevelDestinationRequested) },
                     onBack = onBack,
                     navigationDestinations = destinations,
                 )
@@ -176,9 +148,7 @@ internal fun AppNavHost(
     }
 }
 
-private fun appSystemScaffold(
-    onTopLevelDestinationRequested: (AppDestination) -> Unit,
-): SystemScaffoldContent = { destination, title, subtitle, compactHeader, showScreenHeader, content ->
+private fun appSystemScaffold(onTopLevelDestinationRequested: (AppDestination) -> Unit): SystemScaffoldContent = { destination, title, subtitle, compactHeader, showScreenHeader, content ->
     AppScreenScaffold(
         currentRoute = AppRouteCodec.encode(destination),
         onNavigate = { route -> AppRouteCodec.decode(route)?.let(onTopLevelDestinationRequested) },
@@ -191,9 +161,7 @@ private fun appSystemScaffold(
     )
 }
 
-private fun appCatalogScaffold(
-    onTopLevelDestinationRequested: (AppDestination) -> Unit
-): CatalogScaffoldContent = { currentDestination, title, subtitle, chrome, topBarVisible, compactHeader, showScreenHeader, content ->
+private fun appCatalogScaffold(onTopLevelDestinationRequested: (AppDestination) -> Unit): CatalogScaffoldContent = { currentDestination, title, subtitle, chrome, topBarVisible, compactHeader, showScreenHeader, content ->
     AppScreenScaffold(
         currentRoute = AppRouteCodec.encode(currentDestination),
         onNavigate = { route -> AppRouteCodec.decode(route)?.let(onTopLevelDestinationRequested) },
@@ -210,11 +178,6 @@ private fun appCatalogScaffold(
     )
 }
 
-private fun appDashboardShelfCustomizationContent(): CatalogDashboardShelfCustomizationContent =
-    { currentShelves, onDismiss, onSave ->
-        DashboardShelfCustomizationDialog(
-            currentShelves = currentShelves,
-            onDismiss = onDismiss,
-            onSave = onSave
-        )
-    }
+private fun appDashboardShelfCustomizationContent(): CatalogDashboardShelfCustomizationContent = { currentShelves, onDismiss, onSave ->
+    DashboardShelfCustomizationDialog(currentShelves = currentShelves, onDismiss = onDismiss, onSave = onSave)
+}
