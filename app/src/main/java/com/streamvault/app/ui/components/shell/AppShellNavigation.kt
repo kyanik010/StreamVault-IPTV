@@ -8,7 +8,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -39,7 +38,6 @@ enum class AppNavigationChrome {
 }
 
 internal val LocalAppDestinationItems = staticCompositionLocalOf<List<UiDestination>?> { null }
-
 internal val LocalAppCloseAction = staticCompositionLocalOf<(() -> Unit)?> { null }
 
 @Composable
@@ -59,10 +57,7 @@ fun AppScreenScaffold(
     content: @Composable ColumnScope.() -> Unit
 ) {
     val navigationDestinations = LocalAppDestinationItems.current
-        ?: rememberAppDestinationItems(
-            configuredDestinations = AppTopLevelDestination.defaultOrder,
-            catalogLayout = CatalogLayout.SPLIT
-        )
+        ?: rememberAppDestinationItems(AppTopLevelDestination.defaultOrder, CatalogLayout.SPLIT)
     val closeAppAction = LocalAppCloseAction.current
     val closeAppLabel = stringResource(R.string.nav_close_app)
 
@@ -83,12 +78,7 @@ fun AppScreenScaffold(
         header = header,
         topBarActions = {
             topBarActions?.invoke(this)
-            if (closeAppAction != null) {
-                AppTopBarCloseAction(
-                    onClick = closeAppAction,
-                    contentDescription = closeAppLabel
-                )
-            }
+            if (closeAppAction != null) AppTopBarCloseAction(closeAppAction, closeAppLabel)
         },
         contentPadding = contentPadding,
         content = content
@@ -105,21 +95,20 @@ internal fun buildDestinationItems(
     configured: List<AppTopLevelDestination>,
     layout: CatalogLayout
 ): List<AppDestinationItem> {
+    val audioExcluded = configured.filterNot { it == AppTopLevelDestination.AUDIO }
     if (layout == CatalogLayout.SPLIT) {
-        return configured
-            .distinct()
-            .map { it.toDestinationItem() }
+        return audioExcluded.distinct().map { it.toDestinationItem() }
     }
 
     var insertedVod = false
     return buildList {
-        configured.forEach { destination ->
+        audioExcluded.forEach { destination ->
             when (destination) {
                 AppTopLevelDestination.MOVIES,
                 AppTopLevelDestination.SERIES -> if (!insertedVod) {
                     add(AppDestinationItem(Routes.VOD, R.string.nav_vod, Icons.Default.Star))
                     insertedVod = true
-                }
+                } else add(destination.toDestinationItem())
                 else -> add(destination.toDestinationItem())
             }
         }
@@ -135,16 +124,12 @@ internal fun rememberAppDestinationItems(
         buildDestinationItems(configuredDestinations, catalogLayout)
     }
     return destinationItems.map { item ->
-        UiDestination(
-            id = item.route,
-            label = stringResource(item.labelRes),
-            icon = item.icon
-        )
+        UiDestination(id = item.route, label = stringResource(item.labelRes), icon = item.icon)
     }
 }
 
 private fun AppTopLevelDestination.toDestinationItem(): AppDestinationItem = when (this) {
-    AppTopLevelDestination.AUDIO -> AppDestinationItem(Routes.AUDIO, R.string.nav_audio, Icons.Default.MusicNote)
+    AppTopLevelDestination.AUDIO -> error("Standalone Audio navigation is disabled")
     AppTopLevelDestination.HOME -> AppDestinationItem(Routes.HOME, R.string.nav_home, Icons.Default.Home)
     AppTopLevelDestination.LIVE_TV -> AppDestinationItem(Routes.LIVE_TV, R.string.nav_live_tv, Icons.Default.PlayArrow)
     AppTopLevelDestination.MOVIES -> AppDestinationItem(Routes.MOVIES, R.string.nav_movies, Icons.Default.Star)
@@ -159,29 +144,11 @@ private fun AppTopLevelDestination.toDestinationItem(): AppDestinationItem = whe
 private val PluginBlocksIcon: ImageVector
     get() {
         if (_pluginBlocksIcon != null) return _pluginBlocksIcon!!
-        _pluginBlocksIcon = ImageVector.Builder(
-            name = "PluginBlocks",
-            defaultWidth = 24.dp,
-            defaultHeight = 24.dp,
-            viewportWidth = 24f,
-            viewportHeight = 24f
-        ).apply {
+        _pluginBlocksIcon = ImageVector.Builder(name = "PluginBlocks", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f).apply {
             path(fill = SolidColor(Color.Black)) {
-                moveTo(3f, 4f)
-                horizontalLineTo(10f)
-                verticalLineTo(11f)
-                horizontalLineTo(3f)
-                close()
-                moveTo(14f, 4f)
-                horizontalLineTo(21f)
-                verticalLineTo(11f)
-                horizontalLineTo(14f)
-                close()
-                moveTo(8.5f, 13f)
-                horizontalLineTo(15.5f)
-                verticalLineTo(20f)
-                horizontalLineTo(8.5f)
-                close()
+                moveTo(3f, 4f); horizontalLineTo(10f); verticalLineTo(11f); horizontalLineTo(3f); close()
+                moveTo(14f, 4f); horizontalLineTo(21f); verticalLineTo(11f); horizontalLineTo(14f); close()
+                moveTo(8.5f, 13f); horizontalLineTo(15.5f); verticalLineTo(20f); horizontalLineTo(8.5f); close()
             }
         }.build()
         return _pluginBlocksIcon!!
