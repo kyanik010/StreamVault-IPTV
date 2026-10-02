@@ -1,6 +1,5 @@
 package com.streamvault.app.audio
 
-import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -19,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -28,29 +28,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.media3.common.AudioAttributes
-import androidx.media3.common.C
-import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
-import androidx.media3.common.PlaybackException
-import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.DefaultHttpDataSource
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.DefaultLoadControl
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
-import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
-import com.streamvault.domain.model.ExternalAudioSource
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
-@OptIn(UnstableApi::class)
 @Composable
 fun AudioLibraryScreen(
     modifier: Modifier = Modifier,
@@ -58,87 +43,13 @@ fun AudioLibraryScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    var selectedId by remember { mutableStateOf<Long?>(null) }
-    var isPlaying by remember { mutableStateOf(false) }
-    var playbackError by remember { mutableStateOf<String?>(null) }
-
-    val httpFactory = remember(context) {
-        DefaultHttpDataSource.Factory()
-            .setUserAgent("StreamVault/Audio")
-    }
-
-    val player = remember(context, httpFactory) {
-        val selector = DefaultTrackSelector(context).apply {
-            setParameters(
-                buildUponParameters()
-                    .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, true)
-                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
-            )
-        }
-        ExoPlayer.Builder(context)
-            .setTrackSelector(selector)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(httpFactory))
-            .setLoadControl(DefaultLoadControl())
-            .setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(C.USAGE_MEDIA)
-                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-                    .build(),
-                true
-            )
-            .build()
-            .also { exo ->
-                exo.addListener(object : Player.Listener {
-                    override fun onIsPlayingChanged(playing: Boolean) {
-                        isPlaying = playing
-                    }
-                    override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                        selectedId = mediaItem?.mediaId?.toLongOrNull()
-                        playbackError = null
-                    }
-
-                    override fun onPlayerError(error: PlaybackException) {
-                        isPlaying = false
-                        playbackError = error.message ?: "تعذر تشغيل مصدر الصوت."
-                    }
-                })
-            }
-    }
+    val player = remember(context) { AudioOnlyPlayerController(context) }
+    val selectedId by player.selectedId.collectAsStateWithLifecycle()
+    val isPlaying by player.isPlaying.collectAsStateWithLifecycle()
+    val playbackError by player.error.collectAsStateWithLifecycle()
 
     DisposableEffect(player) {
         onDispose { player.release() }
-    }
-
-    fun play(source: ExternalAudioSource) {
-        playbackError = null
-        val playbackUrl = if (!source.isExpired() && source.resolvedUrl.isNotBlank()) {
-            source.resolvedUrl
-        } else {
-            source.sourceUrl
-        }
-        if (playbackUrl.isBlank()) {
-            playbackError = "رابط مصدر الصوت غير صالح."
-            return
-        }
-
-        httpFactory.setDefaultRequestProperties(source.headers)
-        source.userAgent?.takeIf { it.isNotBlank() }?.let(httpFactory::setUserAgent)
-
-        val mediaItem = MediaItem.Builder()
-            .setMediaId(source.channelId.toString())
-            .setUri(playbackUrl)
-            .setTag(source)
-            .build()
-
-        runCatching {
-            player.setMediaItem(mediaItem)
-            player.prepare()
-            player.play()
-            selectedId = source.channelId
-        }.onFailure { error ->
-            isPlaying = false
-            playbackError = error.message ?: "تعذر تشغيل مصدر الصوت."
-        }
     }
 
     Column(
@@ -152,7 +63,7 @@ fun AudioLibraryScreen(
             style = MaterialTheme.typography.headlineMedium
         )
         Text(
-            text = "مكتبة صوتية جاهزة من نفس اشتراك IPTV",
+            text = "مكتبة صوتية من نفس اشتراك IPTV — تشغيل صوت فقط",
             style = MaterialTheme.typography.bodyMedium
         )
 
@@ -160,6 +71,17 @@ fun AudioLibraryScreen(
             Text(
                 text = error,
                 style = MaterialTheme.typography.bodyMedium
+            )
+        }
+
+        if (selectedId != null) {
+            AudioNowPlayingBar(
+                title = state.sources.firstOrNull { it.channelId == selectedId }?.name ?: "Audio",
+                playing = isPlaying,
+                onPlayPause = {
+                    state.sources.firstOrNull { it.channelId == selectedId }?.let(player::toggle)
+                },
+                onStop = { player.stop() }
             )
         }
 
@@ -181,18 +103,14 @@ fun AudioLibraryScreen(
                         items = state.sources,
                         key = { it.channelId }
                     ) { source ->
+                        val selected = selectedId == source.channelId
                         AudioLibraryRow(
-                            source = source,
-                            selected = selectedId == source.channelId,
-                            playing = selectedId == source.channelId && isPlaying,
-                            onClick = { play(source) },
-                            onPlayPause = {
-                                if (selectedId == source.channelId && isPlaying) {
-                                    player.pause()
-                                } else {
-                                    play(source)
-                                }
-                            }
+                            name = source.name,
+                            groupTitle = source.groupTitle,
+                            selected = selected,
+                            playing = selected && isPlaying,
+                            onClick = { player.play(source) },
+                            onPlayPause = { player.toggle(source) }
                         )
                     }
                 }
@@ -202,8 +120,50 @@ fun AudioLibraryScreen(
 }
 
 @Composable
+private fun AudioNowPlayingBar(
+    title: String,
+    playing: Boolean,
+    onPlayPause: () -> Unit,
+    onStop: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Default.MusicNote, contentDescription = null)
+            Text(
+                text = title,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 12.dp),
+                style = MaterialTheme.typography.titleMedium
+            )
+            IconButton(onClick = onPlayPause) {
+                Icon(
+                    imageVector = if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    contentDescription = null
+                )
+            }
+            IconButton(onClick = onStop) {
+                Icon(Icons.Default.Stop, contentDescription = null)
+            }
+        }
+    }
+}
+
+@Composable
 private fun AudioLibraryRow(
-    source: ExternalAudioSource,
+    name: String,
+    groupTitle: String?,
     selected: Boolean,
     playing: Boolean,
     onClick: () -> Unit,
@@ -215,7 +175,11 @@ private fun AudioLibraryRow(
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+            containerColor = if (selected) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant
+            }
         )
     ) {
         Row(
@@ -243,19 +207,13 @@ private fun AudioLibraryRow(
                     .weight(1f)
                     .padding(horizontal = 14.dp)
             ) {
-                Text(
-                    text = source.name,
-                    style = MaterialTheme.typography.titleMedium
-                )
-                source.groupTitle?.takeIf { it.isNotBlank() }?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                Text(name, style = MaterialTheme.typography.titleMedium)
+                groupTitle?.takeIf { it.isNotBlank() }?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall)
                 }
                 if (selected) {
                     Text(
-                        text = if (playing) "يعمل صوت فقط" else "متوقف",
+                        if (playing) "يعمل صوت فقط" else "متوقف",
                         style = MaterialTheme.typography.labelMedium
                     )
                 }
