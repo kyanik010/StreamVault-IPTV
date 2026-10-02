@@ -26,6 +26,7 @@ interface ChannelRepository {
     suspend fun getStreamInfo(channel: Channel, preferStableUrl: Boolean = false): Result<StreamInfo>
     suspend fun getExternalAudioSources(providerId: Long): List<ExternalAudioSource>
     suspend fun getExternalAudioSource(providerId: Long, channelId: Long): ExternalAudioSource?
+    suspend fun prepareExternalAudioLibrary(providerId: Long, onProgress: ((current: Int, total: Int) -> Unit)?): Int
     suspend fun prepareExternalAudioLibrary(providerId: Long): Int
     suspend fun refreshExternalAudioSource(providerId: Long, channelId: Long): ExternalAudioSource?
     suspend fun refreshChannels(providerId: Long): Result<Unit>
