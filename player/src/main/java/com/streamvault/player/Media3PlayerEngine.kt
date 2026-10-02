@@ -482,7 +482,9 @@ class Media3PlayerEngine @Inject constructor(
         if (externalAudioPreviousMainAudioEnabled == null) {
             externalAudioPreviousMainAudioEnabled = isMainAudioEnabled()
         }
-        // Keep the main audio audible until the secondary player reaches READY.
+        // Mute the video's own audio immediately when an external source is selected.
+        // If the external source fails, the failure/stop path restores the previous state.
+        setMainAudioEnabled(false)
         externalAudioController.play(channel, streamInfo)
     }
 
