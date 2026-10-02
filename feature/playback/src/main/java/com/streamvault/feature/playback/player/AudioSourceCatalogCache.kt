@@ -6,13 +6,13 @@ import com.streamvault.domain.repository.ChannelRepository
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.coroutines.flow.first
 
 /**
- * In-memory view of the persistent External Audio library.
+ * In-memory metadata view of the persistent External Audio library.
  *
- * The persistent source of truth is Room, prepared once after Live TV sync. The memory cache
- * is populated from Room and never resolves or refreshes a stream URL.
+ * Room is the persistent source of truth. This cache is populated from Room during
+ * subscription sync/preload and is read-only from playback/UI paths. It never resolves,
+ * refreshes, or fetches an IPTV stream URL.
  */
 @Singleton
 class AudioSourceCatalogCache @Inject constructor(
@@ -23,12 +23,11 @@ class AudioSourceCatalogCache @Inject constructor(
 
     suspend fun warm(providerId: Long): List<Channel> {
         if (providerId <= 0L) return emptyList()
+
         val prepared = channelRepository.getExternalAudioSources(providerId)
         val preparedByChannel = prepared.associateBy { it.channelId }
         preparedCache[providerId] = preparedByChannel
 
-        // Build the picker directly from the persistent Audio library. Do not wait for
-        // the Live TV Flow here: the Audio library is already prepared in Room.
         val channels = prepared
             .asSequence()
             .filter { it.sourceUrl.isNotBlank() || it.resolvedUrl.isNotBlank() }
@@ -51,24 +50,19 @@ class AudioSourceCatalogCache @Inject constructor(
         return channels
     }
 
+    /** Returns the already-preloaded Audio metadata. Never touches the network. */
     fun get(providerId: Long): List<Channel>? = cache[providerId]
 
+    /** Returns the already-prepared Room records held in memory. */
     fun getPreparedSources(providerId: Long): List<ExternalAudioSource> =
         preparedCache[providerId]
             ?.values
             ?.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
             .orEmpty()
 
+    /** Returns one already-prepared source. No refresh/fetch fallback is permitted. */
     fun getPrepared(providerId: Long, channelId: Long): ExternalAudioSource? =
         preparedCache[providerId]?.get(channelId)
-
-    suspend fun refreshPrepared(providerId: Long, channelId: Long): ExternalAudioSource? {
-        val refreshed = channelRepository.refreshExternalAudioSource(providerId, channelId) ?: return null
-        preparedCache.compute(providerId) { _, current ->
-            (current ?: emptyMap()) + (channelId to refreshed)
-        }
-        return refreshed
-    }
 
     fun wasWarmed(providerId: Long): Boolean =
         providerId > 0L && cache.containsKey(providerId)
