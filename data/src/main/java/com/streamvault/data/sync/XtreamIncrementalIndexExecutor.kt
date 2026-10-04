@@ -418,6 +418,11 @@ internal class XtreamIncrementalIndexExecutor(
                 is Result.Success -> {
                     val finishedAt = System.currentTimeMillis()
                     val acceptedCount = indexedRows.coerceAtLeast(streamResult.data)
+                    if (acceptedCount <= 0) {
+                        return Result.error(
+                            "Xtream ${contentType.name.lowercase()} full index returned no usable rows; falling back to category slices."
+                        )
+                    }
                     upsertJob(
                         providerId = provider.id,
                         section = contentType.name,
