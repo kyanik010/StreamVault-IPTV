@@ -238,29 +238,6 @@ class ProviderRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun hasMatchingXtreamProvider(
-        serverUrl: String,
-        username: String,
-        password: String,
-    ): Boolean {
-        val normalizedServerUrl = ProviderInputSanitizer.normalizeUrl(serverUrl).trimEnd('/')
-        val normalizedUsername = ProviderInputSanitizer.normalizeUsername(username)
-        if (normalizedServerUrl.isBlank() || normalizedUsername.isBlank() || password.isBlank()) return false
-
-        for (entity in providerDao.getAllSync()) {
-            val snapshot = providerCapabilityResolver.snapshot(entity.id) ?: continue
-            if (snapshot.provider.type != ProviderType.XTREAM_CODES) continue
-            val config = snapshot.configuration as? XtreamConfig ?: continue
-            if (config.serverUrl.trimEnd('/') == normalizedServerUrl &&
-                config.username == normalizedUsername &&
-                config.password == password
-            ) {
-                return true
-            }
-        }
-        return false
-    }
-
     override suspend fun getAllProviderCredentials(): List<ProviderCredentials> {
         return providerDao.getAllSync()
             .mapNotNull { entity -> loadLegacyProvider(entity.id) }
@@ -1390,7 +1367,7 @@ class ProviderRepositoryImpl @Inject constructor(
     ): Result<Unit> {
         return try {
         val pendingEdit = target.pendingEdit
-        val syncResult = if (pendingEdit == null) {
+        if (pendingEdit == null) {
             syncManager.sync(
                 providerId = target.providerData.id,
                 force = false,
@@ -1411,29 +1388,6 @@ class ProviderRepositoryImpl @Inject constructor(
                 afterCatalogApply = { promoteProviderEdit(pendingEdit) }
             )
         }
-
-        // Initial Xtream onboarding must not finish after only the Live TV/audio/category-shell
-        // phase. The user expects the same ready-to-browse catalog that a manual Xtream sync
-        // produces, so drain the queued Movies and Series indexes before completing onboarding.
-        if (syncResult is Result.Success && target.providerData.type == ProviderType.XTREAM_CODES) {
-            onProgress?.invoke("جاري مزامنة وتحميل الأفلام...")
-            syncManager.processQueuedXtreamIndexJobs(
-                providerId = target.providerData.id,
-                section = ContentType.MOVIE,
-                force = true,
-                onProgress = null
-            )
-
-            onProgress?.invoke("جاري مزامنة وتحميل المسلسلات...")
-            syncManager.processQueuedXtreamIndexJobs(
-                providerId = target.providerData.id,
-                section = ContentType.SERIES,
-                force = true,
-                onProgress = null
-            )
-        }
-
-        syncResult
     } catch (error: kotlinx.coroutines.CancellationException) {
         target.pendingEdit?.let { pendingEdit ->
             withContext(NonCancellable) {
