@@ -18,6 +18,10 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
+      - name: Prepare existing #368 launcher resource for CI build
+        run: |
+          mkdir -p app/src/main/res/drawable
+          printf '%s\n' '<?xml version="1.0" encoding="utf-8"?>' '<bitmap xmlns:android="http://schemas.android.com/apk/res/android" android:src="@drawable/eagle_x_activation_logo" />' > app/src/main/res/drawable/eagle_x_launcher.xml
       - name: Compile and build debug APK
         run: ./gradlew --console=plain :app:assembleDebug
       - name: Upload APK
