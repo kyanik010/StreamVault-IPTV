@@ -15,6 +15,9 @@ on:
       - feature/eagle-x2-sync-from-build300
       - feature/official-xtream-sync-from-368
   workflow_dispatch:
+  pull_request:
+    branches:
+      - feature/eagle-x2-final-fixes
 
 permissions:
   contents: read
