@@ -94,7 +94,6 @@ import com.streamvault.domain.model.XtreamConfig
 import com.streamvault.domain.repository.EpgRepository
 import com.streamvault.domain.repository.EpgSourceRepository
 import com.streamvault.domain.repository.SyncMetadataRepository
-import com.streamvault.domain.repository.ChannelRepository
 import com.streamvault.domain.repository.M3uClassificationRepository
 import com.streamvault.domain.repository.ProviderSnapshotRepository
 import com.streamvault.domain.sync.Section
@@ -418,6 +417,7 @@ class SyncManager @Inject constructor(
         M3uCatalogSyncExecutor(
             importer = m3uImporter,
             syncMetadataRepository = syncMetadataRepository,
+            channelRepository = channelRepository,
             epgSourceRepository = epgSourceRepository,
             countPrograms = { providerId -> programDao.countByProvider(providerId) },
             shouldSyncEpgUpfront = ::shouldSyncEpgUpfront,
@@ -570,7 +570,6 @@ class SyncManager @Inject constructor(
             applicationContext = applicationContext,
             preferencesRepository = preferencesRepository,
             syncMetadataRepository = syncMetadataRepository,
-            channelRepository = channelRepository,
             channelDao = channelDao,
             categoryDao = categoryDao,
             xtreamLiveOnboardingDao = xtreamLiveOnboardingDao,
@@ -609,7 +608,6 @@ class SyncManager @Inject constructor(
             preferencesRepository = preferencesRepository,
             syncMetadataRepository = syncMetadataRepository,
             providerSnapshotRepository = providerSnapshotRepository,
-            channelRepository = channelRepository,
             transactionRunner = transactionRunner,
             categoryDao = categoryDao,
             channelDao = channelDao,
