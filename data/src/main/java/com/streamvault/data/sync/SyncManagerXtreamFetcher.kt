@@ -111,6 +111,7 @@ internal class SyncManagerXtreamFetcher(
                                     "Xtream live category '${category.categoryName}' thin decode failed; retrying legacy decode: ${sanitizeThrowableMessage(error)}"
                                 )
                             }
+                            }
                             val legacyStreams = xtreamCatalogApiService.getLiveStreams(endpoint)
                             rawCount = legacyStreams.size
                             emitMappedChannels(api.mapLiveStreamsResponse(legacyStreams))
