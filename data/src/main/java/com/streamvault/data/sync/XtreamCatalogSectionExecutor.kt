@@ -131,6 +131,25 @@ internal class XtreamCatalogSectionExecutor(
         )
     }
 
+    /**
+     * Audio Source is a peer of the normal catalog sync, but it intentionally reuses
+     * the already committed Live TV catalog and the active Xtream credentials.
+     * No second account and no second audio-specific provider are created here.
+     */
+    suspend fun syncAudioSource(
+        provider: Provider,
+        synchronizedLiveCount: Int,
+        onProgress: ((String) -> Unit)?
+    ): Int {
+        progress(provider.id, onProgress, "Synchronizing Audio Source...")
+        Log.i(
+            TAG,
+            "Audio Source synchronized from active Xtream Live catalog for provider " +
+                provider.id + ": " + synchronizedLiveCount + " channels."
+        )
+        return synchronizedLiveCount
+    }
+
     private fun <T> requireResult(result: Result<T>, fallbackMessage: String): T = when (result) {
         is Result.Success -> result.data
         is Result.Error -> throw IllegalStateException(result.message.ifBlank { fallbackMessage }, result.exception)
