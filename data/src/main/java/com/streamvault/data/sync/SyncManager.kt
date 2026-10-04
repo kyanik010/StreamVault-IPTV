@@ -205,7 +205,6 @@ class SyncManager @Inject constructor(
     private val okHttpClient: OkHttpClient,
     credentialCrypto: CredentialCrypto,
     private val syncMetadataRepository: SyncMetadataRepository,
-    private val channelRepository: ChannelRepository,
     private val transactionRunner: DatabaseTransactionRunner,
     private val preferencesRepository: com.streamvault.data.preferences.PreferencesRepository,
     private val syncProgressBus: SyncProgressBus,
