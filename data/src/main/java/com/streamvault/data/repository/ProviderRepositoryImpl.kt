@@ -1432,6 +1432,8 @@ class ProviderRepositoryImpl @Inject constructor(
                 onProgress = null
             )
         }
+
+        syncResult
     } catch (error: kotlinx.coroutines.CancellationException) {
         target.pendingEdit?.let { pendingEdit ->
             withContext(NonCancellable) {
@@ -1443,7 +1445,7 @@ class ProviderRepositoryImpl @Inject constructor(
             }
         }
         throw error
-        }
+    }
     }
 
     private suspend fun persistTypedSnapshot(
