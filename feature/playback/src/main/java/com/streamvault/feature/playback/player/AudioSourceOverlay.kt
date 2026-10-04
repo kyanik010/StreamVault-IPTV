@@ -44,25 +44,7 @@ internal fun AudioSourceOverlay(
     onRemove: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    var showAddAccount by remember { mutableStateOf(state.providers.isEmpty()) }
-    var serverUrl by remember { mutableStateOf("") }
-    var username by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var accountName by remember { mutableStateOf("Audio Source") }
-
-    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.78f)), contentAlignment = Alignment.Center) {
-        Surface(
-            modifier = Modifier.fillMaxHeight(0.86f).widthIn(min = 420.dp, max = 720.dp),
-            shape = RoundedCornerShape(18.dp),
-            colors = androidx.tv.material3.SurfaceDefaults.colors(containerColor = Color(0xFF0C1624))
-        ) {
-            Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Audio Source", style = MaterialTheme.typography.headlineSmall, color = Color.White)
-                Text(
-                    if (state.providerName.isBlank()) "Select an Xtream audio account" else state.providerName,
-                    style = MaterialTheme.typography.bodyMedium, color = OnSurfaceDim
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TvClickableSurface(
                         onClick = { showAddAccount = !showAddAccount },
                         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
