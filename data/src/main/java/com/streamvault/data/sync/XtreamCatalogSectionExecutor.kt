@@ -141,17 +141,15 @@ internal class XtreamCatalogSectionExecutor(
         synchronizedLiveCount: Int,
         onProgress: ((String) -> Unit)?
     ): Int {
-        // Audio Source is a catalog peer, not a second IPTV account. The same Xtream
-        // credentials and the same committed Live catalog are the source of its channels.
+        // Audio Source is a catalog peer, not a second IPTV account. It reuses the
+        // already synchronized Live TV catalog from the same Xtream subscription.
         progress(provider.id, onProgress, "Synchronizing Audio Source...")
-        val committedAudioChannels = channelDao.getCount(provider.id).first()
         Log.i(
             TAG,
-            "Audio Source sync for provider " + provider.id + ": " +
-                "liveSynced=" + synchronizedLiveCount +
-                ", committedChannels=" + committedAudioChannels + "."
+            "Audio Source synchronized from active Xtream Live catalog for provider " +
+                provider.id + ": " + synchronizedLiveCount + " channels."
         )
-        return committedAudioChannels
+        return synchronizedLiveCount
     }
 
     private fun <T> requireResult(result: Result<T>, fallbackMessage: String): T = when (result) {
