@@ -643,6 +643,7 @@ class SyncManager @Inject constructor(
                 delegate = SyncManagerPlanDelegate(
                     snapshotAdapter = syncProviderSnapshotAdapter,
                     syncMetadataRepository = syncMetadataRepository,
+                    channelRepository = channelRepository,
                     xtreamCatalogExecutor = xtreamCatalogExecutor,
                     xtreamCatalogSectionExecutor = xtreamCatalogSectionExecutor,
                     providerEpgExecutor = providerEpgExecutor,
