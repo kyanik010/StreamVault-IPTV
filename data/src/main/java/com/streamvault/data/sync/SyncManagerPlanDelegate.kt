@@ -3,6 +3,7 @@ package com.streamvault.data.sync
 import com.streamvault.domain.model.ProviderSnapshot
 import com.streamvault.domain.model.SyncMetadata
 import com.streamvault.domain.repository.SyncMetadataRepository
+import com.streamvault.domain.repository.ChannelRepository
 
 /**
  * Bridges the provider-neutral plan contract to the existing provider executors.
@@ -14,6 +15,7 @@ import com.streamvault.domain.repository.SyncMetadataRepository
 internal class SyncManagerPlanDelegate(
     private val snapshotAdapter: SyncProviderSnapshotAdapter,
     private val syncMetadataRepository: SyncMetadataRepository,
+    private val channelRepository: ChannelRepository,
     private val xtreamCatalogExecutor: XtreamCatalogSyncExecutor,
     private val xtreamCatalogSectionExecutor: XtreamCatalogSectionExecutor,
     private val providerEpgExecutor: ProviderEpgSyncExecutor,
@@ -24,9 +26,10 @@ internal class SyncManagerPlanDelegate(
 ) : CatalogSyncPlanDelegate {
     private fun ProviderSnapshot.toLegacyProvider() = snapshotAdapter.toLegacyProvider(this)
 
-    override suspend fun syncXtreamFull(request: FullProviderSyncRequest): SyncOutcome =
-        xtreamCatalogExecutor.syncFull(
-            provider = request.snapshot.toLegacyProvider(),
+    override suspend fun syncXtreamFull(request: FullProviderSyncRequest): SyncOutcome {
+        val provider = request.snapshot.toLegacyProvider()
+        val outcome = xtreamCatalogExecutor.syncFull(
+            provider = provider,
             force = request.force,
             onProgress = request.onProgress,
             trackInitialLiveOnboarding = request.trackInitialLiveOnboarding,
@@ -37,6 +40,14 @@ internal class SyncManagerPlanDelegate(
             },
             afterCatalogApply = request.afterCatalogApply
         )
+        runCatching {
+            request.onProgress?.invoke("جاري مزامنة مكتبة الصوتيات...")
+            channelRepository.prepareExternalAudioLibrary(provider.id)
+        }.onFailure { error ->
+            android.util.Log.w("SyncManagerPlanDelegate", "Audio library sync failed for provider " + provider.id, error)
+        }
+        return outcome
+    }
 
     override suspend fun syncXtreamLive(request: SectionProviderSyncRequest): SyncOutcome =
         xtreamCatalogExecutor.syncLive(
