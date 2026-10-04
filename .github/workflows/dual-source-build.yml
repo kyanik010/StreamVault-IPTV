@@ -12,7 +12,6 @@ on:
       - feature/eagle-x2-ui-on-223
       - feature/eagle-x2-final-fixes
       - feature/eagle-x2-sync-from-build300
-      - feature/official-xtream-sync-from-368
   workflow_dispatch:
 
 permissions:
