@@ -1,5 +1,6 @@
 name: Dual Source Build
 # verification trigger
+# rebuild after sync KSP fix
 
 on:
   push:
