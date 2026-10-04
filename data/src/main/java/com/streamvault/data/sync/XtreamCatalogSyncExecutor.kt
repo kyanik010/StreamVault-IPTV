@@ -5,7 +5,6 @@ import android.util.Log
 import com.streamvault.data.local.dao.CategoryDao
 import com.streamvault.data.local.dao.ChannelDao
 import com.streamvault.data.local.dao.XtreamLiveOnboardingDao
-import com.streamvault.domain.repository.ChannelRepository
 import com.streamvault.data.local.entity.CategoryEntity
 import com.streamvault.data.local.entity.ChannelEntity
 import com.streamvault.data.local.entity.XtreamLiveOnboardingStateEntity
@@ -51,7 +50,6 @@ internal class XtreamCatalogSyncExecutor(
     private val preferencesRepository: PreferencesRepository,
     private val syncMetadataRepository: SyncMetadataRepository,
     private val channelDao: ChannelDao,
-    private val channelRepository: ChannelRepository,
     private val categoryDao: CategoryDao,
     private val xtreamLiveOnboardingDao: XtreamLiveOnboardingDao,
     private val syncCatalogStore: SyncCatalogStore,
@@ -391,10 +389,6 @@ internal class XtreamCatalogSyncExecutor(
             )
         }
 
-        // Audio library preparation is the only custom addition to the official Xtream sync.
-        onProgress?.invoke("جاري مزامنة مكتبة الصوتيات...")
-        val preparedExternalAudioCount = channelRepository.prepareExternalAudioLibrary(provider.id)
-        Log.i(TAG, "External Audio library ready: provider=${provider.id} prepared=$preparedExternalAudioCount live=$liveCount")
 
         if (trackInitialLiveOnboarding) {
             val completedAt = System.currentTimeMillis()
