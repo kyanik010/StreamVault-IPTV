@@ -26,6 +26,7 @@ internal fun AudioSourceOverlay(
     onSelectProvider: (Long) -> Unit,
     onAddAudioAccount: (String, String, String, String) -> Unit,
     onSync: () -> Unit,
+    onReconnect: () -> Unit,
     onOffsetMinus: () -> Unit,
     onOffsetPlus: () -> Unit,
     onResetSync: () -> Unit,
