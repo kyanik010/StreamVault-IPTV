@@ -311,15 +311,6 @@ internal class XtreamCatalogSyncExecutor(
             section = ContentType.LIVE,
             reason = "activated live catalog requires durable search-index backfill"
         )
-        // External Audio is a required stage between the committed Live TV catalog and VOD/Series.
-        // The preparation is local: it resolves and persists the Live TV audio library once, while
-        // preserving valid cached rows and refreshing only expired/missing sources.
-        progress(provider.id, onProgress, "جاري تجهيز مكتبة الصوتيات...")
-        val preparedExternalAudioCount = channelRepository.prepareExternalAudioLibrary(provider.id)
-        Log.i(
-            TAG,
-            "External Audio library ready: provider=${provider.id} prepared=$preparedExternalAudioCount live=$liveCount"
-        )
         emitProgress(
             provider.id,
             SyncProgress(
@@ -390,6 +381,26 @@ internal class XtreamCatalogSyncExecutor(
             )
             0
         }
+        // Audio Source is the final catalog stage and uses the same committed Live TV catalog
+        // and the same active Xtream subscription. No second account or provider is created.
+        progress(provider.id, onProgress, "جاري مزامنة مكتبة الصوتيات...")
+        val preparedExternalAudioCount = channelRepository.prepareExternalAudioLibrary(provider.id) { current, total ->
+            emitProgress(
+                provider.id,
+                SyncProgress(
+                    section = Section.AUDIO,
+                    current = current,
+                    total = total,
+                    currentLabel = "جاري مزامنة مكتبة الصوتيات...",
+                    itemsIndexed = current
+                )
+            )
+            onProgress?.invoke("جاري مزامنة مكتبة الصوتيات... $current/$total")
+        }
+        Log.i(
+            TAG,
+            "External Audio library ready: provider=${provider.id} prepared=$preparedExternalAudioCount live=$liveCount"
+        )
         if (seriesCategoryCount > 0) {
             catalogActivated = true
             continuationWork += SyncContinuation(
