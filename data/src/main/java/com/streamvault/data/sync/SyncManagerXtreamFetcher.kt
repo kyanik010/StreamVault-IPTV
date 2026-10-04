@@ -40,31 +40,37 @@ internal class SyncManagerXtreamFetcher(
         )
         var mappedChannels: List<Channel> = emptyList()
         var rawCount = 0
+        var mappedCount = 0
         var categoryFailure: Throwable? = null
         val streamingStageBatchSize = stageBatchSize?.takeIf { it > 0 }
 
         suspend fun emitMappedChannels(channels: List<Channel>) {
             if (channels.isEmpty()) return
+            mappedCount += channels.size
             onMappedBatch?.invoke(channels)
             if (onMappedBatch == null) {
                 mappedChannels = mappedChannels + channels
             }
         }
 
-        suspend fun streamThinRowsInBatches(): Pair<Int, List<Channel>> {
+        suspend fun streamThinRowsInBatches(): Triple<Int, List<Channel>, Int> {
             val batchSize = streamingStageBatchSize
             if (batchSize == null || onMappedBatch == null) {
                 val rows = ArrayList<XtreamLiveStreamRow>()
                 val streamedCount = xtreamCatalogHttpService.streamLiveStreamRows(endpoint) { row -> rows += row }
-                return streamedCount to api.mapLiveStreamRowsSequence(rows.asSequence()).toList()
+                val mapped = api.mapLiveStreamRowsSequence(rows.asSequence()).toList()
+                return Triple(streamedCount, mapped, mapped.size)
             }
 
             val rawBatch = ArrayList<XtreamLiveStreamRow>(batchSize)
             var streamedCount = 0
+            var mappedCountInBatch = 0
 
             suspend fun flushRawBatch() {
                 if (rawBatch.isEmpty()) return
-                emitMappedChannels(api.mapLiveStreamRowsSequence(rawBatch.asSequence()).toList())
+                val mapped = api.mapLiveStreamRowsSequence(rawBatch.asSequence()).toList()
+                mappedCountInBatch += mapped.size
+                emitMappedChannels(mapped)
                 rawBatch.clear()
             }
 
@@ -76,7 +82,7 @@ internal class SyncManagerXtreamFetcher(
                 }
             }
             flushRawBatch()
-            return streamedCount to emptyList()
+            return Triple(streamedCount, emptyList(), mappedCountInBatch)
         }
 
         val elapsedMs = measureTimeMillis {
@@ -86,9 +92,12 @@ internal class SyncManagerXtreamFetcher(
                         val thinResult = runSuspendCatching {
                             streamThinRowsInBatches()
                         }
-                        val thinCount = thinResult.getOrNull()?.first ?: 0
-                        val thinChannels = thinResult.getOrNull()?.second.orEmpty()
-                        if (thinResult.isSuccess && (thinCount == 0 || thinChannels.isNotEmpty() || onMappedBatch != null)) {
+                        val thinValue = thinResult.getOrNull()
+                        val thinCount = thinValue?.first ?: 0
+                        val thinChannels = thinValue?.second.orEmpty()
+                        val thinMappedCount = thinValue?.third ?: 0
+                        val thinProducedUsableItems = thinMappedCount > 0 || thinChannels.isNotEmpty()
+                        if (thinResult.isSuccess && (thinCount == 0 || thinProducedUsableItems)) {
                             rawCount = thinCount
                             mappedChannels = thinChannels
                         } else {
@@ -96,6 +105,11 @@ internal class SyncManagerXtreamFetcher(
                                 Log.w(
                                     XTREAM_FETCHER_TAG,
                                     "Xtream live category '${category.categoryName}' thin decode failed; retrying legacy decode: ${sanitizeThrowableMessage(error)}"
+                                )
+                            } ?: run {
+                                Log.w(
+                                    XTREAM_FETCHER_TAG,
+                                    "Xtream live category '${category.categoryName}' thin decode returned $thinCount raw items but mapped none; retrying legacy decode."
                                 )
                             }
                             val legacyStreams = xtreamCatalogApiService.getLiveStreams(endpoint)
