@@ -389,17 +389,6 @@ internal class XtreamCatalogSyncExecutor(
             )
         }
 
-        // Audio Source is the final catalog section and uses the same active Xtream subscription.
-        // It does not create or read a second account; it reuses the synchronized Live TV catalog.
-        val audioSourceCount = sectionExecutor.syncAudioSource(
-            provider = provider,
-            synchronizedLiveCount = liveCount,
-            onProgress = onProgress
-        )
-        if (audioSourceCount <= 0) {
-            warnings += "Audio Source has no synchronized live channels."
-        }
-
         if (trackInitialLiveOnboarding) {
             val completedAt = System.currentTimeMillis()
             if (liveCount > 0 || movieCategoryCount > 0 || seriesCategoryCount > 0) {
