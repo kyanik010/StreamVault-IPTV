@@ -45,15 +45,13 @@ class DualSourceAudioCoordinator @Inject constructor(
     suspend fun load(currentProviderId: Long): AudioSourceUiState {
         _state.value = _state.value.copy(loading = true, error = null)
         val providers = providerRepository.getProviders().first()
-            .filter { it.type == ProviderType.XTREAM_CODES && it.id > 0L && it.id != currentProviderId }
+            .filter { it.type == ProviderType.XTREAM_CODES && it.id == currentProviderId }
         if (providers.isEmpty()) {
-            val result = AudioSourceUiState(error = "Add a second Xtream account to use Audio Source.")
+            val result = AudioSourceUiState(error = "The current IPTV subscription is not an Xtream account.")
             _state.value = result
             return result
         }
-        val selectedId = _state.value.providerId?.takeIf { id -> providers.any { it.id == id } }
-            ?: providers.first().id
-        return loadProvider(selectedId, providers)
+        return loadProvider(currentProviderId, providers)
     }
 
     suspend fun addXtreamAudioAccount(
@@ -62,40 +60,22 @@ class DualSourceAudioCoordinator @Inject constructor(
         password: String,
         name: String
     ): ValidateAndAddProviderResult {
-        _state.value = _state.value.copy(addingAccount = true, error = null)
-        val command = XtreamProviderSetupCommand(
-            serverUrl = serverUrl.trim(),
-            username = username.trim(),
-            password = password,
-            name = name.trim().ifBlank { "Audio Source" }
+        val result = ValidateAndAddProviderResult.ValidationError(
+            "Audio Source uses the same IPTV subscription as the video source."
         )
-        val result = validateAndAddProvider.loginXtream(command)
-        _state.value = _state.value.copy(
-            addingAccount = false,
-            error = when (result) {
-                is ValidateAndAddProviderResult.Success -> null
-                is ValidateAndAddProviderResult.SavedWithWarning -> result.warning
-                is ValidateAndAddProviderResult.ValidationError -> result.message
-                is ValidateAndAddProviderResult.Error -> result.message
-                is ValidateAndAddProviderResult.TransportConsentRequired -> "Audio Xtream account requires transport confirmation."
-                is ValidateAndAddProviderResult.VerificationInconclusive -> result.message
-            }
-        )
-        if (result is ValidateAndAddProviderResult.Success || result is ValidateAndAddProviderResult.SavedWithWarning) {
-            _state.value = _state.value.copy(error = null)
-        }
+        _state.value = _state.value.copy(addingAccount = false, error = result.message)
         return result
     }
 
     suspend fun selectProvider(providerId: Long, currentProviderId: Long): AudioSourceUiState {
-        val providers = providerRepository.getProviders().first()
-            .filter { it.type == ProviderType.XTREAM_CODES && it.id > 0L && it.id != currentProviderId }
-        if (providers.none { it.id == providerId }) {
-            val result = _state.value.copy(error = "Selected audio account is unavailable.")
+        if (providerId != currentProviderId) {
+            val result = _state.value.copy(error = "Audio Source uses the current IPTV subscription.")
             _state.value = result
             return result
         }
-        return loadProvider(providerId, providers)
+        val providers = providerRepository.getProviders().first()
+            .filter { it.type == ProviderType.XTREAM_CODES && it.id == currentProviderId }
+        return loadProvider(currentProviderId, providers)
     }
 
     private suspend fun loadProvider(providerId: Long, providers: List<Provider>): AudioSourceUiState {
@@ -122,9 +102,6 @@ class DualSourceAudioCoordinator @Inject constructor(
     ): Result<Unit> {
         val audioProviderId = _state.value.providerId
             ?: return Result.error("Select an audio Xtream account first.")
-        if (audioProviderId == currentProviderId) {
-            return Result.error("Audio account must be different from the video account.")
-        }
         return when (val result = channelRepository.getStreamInfo(channel)) {
             is Result.Success -> {
                 playbackController.attachAudio(videoEngine, videoStream, result.data)
