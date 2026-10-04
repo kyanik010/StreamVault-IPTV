@@ -1446,7 +1446,7 @@ class ProviderRepositoryImpl @Inject constructor(
         }
         throw error
     }
-    }
+        }
 
     private suspend fun persistTypedSnapshot(
         providerId: Long,
