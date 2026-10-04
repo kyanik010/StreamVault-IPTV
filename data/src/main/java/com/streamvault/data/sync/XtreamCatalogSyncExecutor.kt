@@ -5,6 +5,7 @@ import android.util.Log
 import com.streamvault.data.local.dao.CategoryDao
 import com.streamvault.data.local.dao.ChannelDao
 import com.streamvault.data.local.dao.XtreamLiveOnboardingDao
+import com.streamvault.domain.repository.ChannelRepository
 import com.streamvault.data.local.entity.CategoryEntity
 import com.streamvault.data.local.entity.ChannelEntity
 import com.streamvault.data.local.entity.XtreamLiveOnboardingStateEntity
@@ -21,7 +22,6 @@ import com.streamvault.domain.model.ProviderType
 import com.streamvault.domain.model.SyncMetadata
 import com.streamvault.domain.model.VodSyncMode
 import com.streamvault.domain.repository.SyncMetadataRepository
-import com.streamvault.domain.repository.ChannelRepository
 import com.streamvault.domain.sync.Section
 import com.streamvault.domain.sync.SyncProgress
 import kotlinx.coroutines.flow.first
@@ -50,8 +50,8 @@ internal class XtreamCatalogSyncExecutor(
     private val applicationContext: Context,
     private val preferencesRepository: PreferencesRepository,
     private val syncMetadataRepository: SyncMetadataRepository,
-    private val channelRepository: ChannelRepository,
     private val channelDao: ChannelDao,
+    private val channelRepository: ChannelRepository,
     private val categoryDao: CategoryDao,
     private val xtreamLiveOnboardingDao: XtreamLiveOnboardingDao,
     private val syncCatalogStore: SyncCatalogStore,
@@ -391,14 +391,10 @@ internal class XtreamCatalogSyncExecutor(
             )
         }
 
-        // Final catalog stage: build the external audio library from the same Xtream provider.
-        // No second account or separate provider is used.
+        // Audio library preparation is the only custom addition to the official Xtream sync.
         onProgress?.invoke("جاري مزامنة مكتبة الصوتيات...")
         val preparedExternalAudioCount = channelRepository.prepareExternalAudioLibrary(provider.id)
-        Log.i(
-            TAG,
-            "External Audio library ready: provider=${provider.id} prepared=$preparedExternalAudioCount live=$liveCount"
-        )
+        Log.i(TAG, "External Audio library ready: provider=${provider.id} prepared=$preparedExternalAudioCount live=$liveCount")
 
         if (trackInitialLiveOnboarding) {
             val completedAt = System.currentTimeMillis()
