@@ -16,7 +16,6 @@ import com.streamvault.data.util.runSuspendCatching
 import com.streamvault.domain.model.Channel
 import com.streamvault.domain.model.ContentType
 import com.streamvault.domain.model.LegacyProvider as Provider
-import com.streamvault.domain.model.ProviderEpgSyncMode
 import com.streamvault.domain.model.ProviderType
 import com.streamvault.domain.model.SyncMetadata
 import com.streamvault.domain.model.VodSyncMode
@@ -312,6 +311,15 @@ internal class XtreamCatalogSyncExecutor(
             section = ContentType.LIVE,
             reason = "activated live catalog requires durable search-index backfill"
         )
+        // External Audio is a required stage between the committed Live TV catalog and VOD/Series.
+        // The preparation is local: it resolves and persists the Live TV audio library once, while
+        // preserving valid cached rows and refreshing only expired/missing sources.
+        progress(provider.id, onProgress, "جاري تجهيز مكتبة الصوتيات...")
+        val preparedExternalAudioCount = channelRepository.prepareExternalAudioLibrary(provider.id)
+        Log.i(
+            TAG,
+            "External Audio library ready: provider=${provider.id} prepared=$preparedExternalAudioCount live=$liveCount"
+        )
         emitProgress(
             provider.id,
             SyncProgress(
@@ -391,15 +399,6 @@ internal class XtreamCatalogSyncExecutor(
             )
         }
 
-        // Final catalog stage: build the external audio library from the same Xtream provider.
-        // No second account or separate provider is used.
-        onProgress?.invoke("جاري مزامنة مكتبة الصوتيات...")
-        val preparedExternalAudioCount = channelRepository.prepareExternalAudioLibrary(provider.id)
-        Log.i(
-            TAG,
-            "External Audio library ready: provider=${provider.id} prepared=$preparedExternalAudioCount live=$liveCount"
-        )
-
         if (trackInitialLiveOnboarding) {
             val completedAt = System.currentTimeMillis()
             if (liveCount > 0 || movieCategoryCount > 0 || seriesCategoryCount > 0) {
@@ -432,23 +431,8 @@ internal class XtreamCatalogSyncExecutor(
             movieSyncMode = VodSyncMode.UNKNOWN
         )
         syncMetadataRepository.updateMetadata(metadata)
-        val epgState = if (provider.epgSyncMode == ProviderEpgSyncMode.SKIP) "IDLE" else "QUEUED"
-        updateIndexJob(
-            XtreamIndexJobUpdate(
-                providerId = provider.id,
-                section = "EPG",
-                state = epgState,
-                now = now,
-                lastAttemptAt = if (epgState == "QUEUED") now else 0L
-            )
-        )
-        if (provider.epgSyncMode != ProviderEpgSyncMode.SKIP) {
-            continuationWork += SyncContinuation(
-                operation = SyncContinuationOperation.REFRESH_GUIDE,
-                reason = "guide refresh must be handed off to background work",
-                force = force
-            )
-        }
+        // EPG is intentionally excluded from the initial catalog sync. Live TV and the
+        // external audio library are prepared first; VOD/Series indexing continues in background.
         if (force) {
             Log.i(TAG, "Xtream index-first sync completed for provider ${provider.id}; VOD and series index jobs are queued.")
         }
