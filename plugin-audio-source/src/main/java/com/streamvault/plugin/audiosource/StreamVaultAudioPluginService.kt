@@ -12,7 +12,6 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
-import java.net.URLEncoder
 
 class StreamVaultAudioPluginService : Service() {
     private val handler = Handler(Looper.getMainLooper()) { message ->
@@ -40,22 +39,21 @@ class StreamVaultAudioPluginService : Service() {
                     response.putString(PluginContract.KEY_MESSAGE, if (enabled) "Audio Source enabled" else "Audio Source disabled")
                 }
                 PluginContract.MSG_GET_STATUS -> {
-                    val configured = PluginPrefs.server(this).isNotBlank() &&
-                        PluginPrefs.username(this).isNotBlank() &&
-                        PluginPrefs.password(this).isNotBlank()
+                    val configured = getSharedPreferences("streamvault_audio_source", MODE_PRIVATE)
+                        .getString("m3u_url", null).orEmpty().isNotBlank()
                     response.putString(PluginContract.KEY_STATUS_LABEL, when {
                         !PluginPrefs.enabled(this) -> "Disabled"
                         configured -> "Ready"
                         else -> "Not configured"
                     })
-                    response.putString(PluginContract.KEY_MESSAGE, if (configured) "Xtream audio account configured" else "Configure the Xtream audio account")
+                    response.putString(PluginContract.KEY_MESSAGE, if (configured) "Managed M3U audio source configured" else "No managed audio M3U is configured")
                 }
                 PluginContract.MSG_GET_PROVIDER_URL -> {
                     response.putBoolean(PluginContract.KEY_SUCCESS, false)
                     response.putString(PluginContract.KEY_MESSAGE, "Audio Source is consumed directly by the player.")
                 }
                 PluginContract.MSG_GET_AUDIO_CHANNELS -> {
-                    val channels = fetchXtreamChannels()
+                    val channels = fetchM3uChannels()
                     response.putString(PluginContract.KEY_AUDIO_CHANNELS_JSON, channels.toString())
                 }
                 PluginContract.MSG_PREPARE_PLAYBACK -> response.putBoolean(PluginContract.KEY_HANDLED, false)
@@ -77,46 +75,78 @@ class StreamVaultAudioPluginService : Service() {
         runCatching { message.replyTo?.send(Message.obtain().apply { data = response }) }
     }
 
-    private fun fetchXtreamChannels(): JSONArray {
+    private fun fetchM3uChannels(): JSONArray {
         require(PluginPrefs.enabled(this)) { "Audio Source is disabled." }
-        val server = PluginPrefs.server(this).trim().trimEnd('/')
-        val username = PluginPrefs.username(this).trim()
-        val password = PluginPrefs.password(this)
-        require(server.isNotBlank() && username.isNotBlank() && password.isNotBlank()) {
-            "Configure the Xtream audio account first."
-        }
 
-        val endpoint = URL(
-            "$server/player_api.php?username=${enc(username)}&password=${enc(password)}&action=get_live_streams"
-        )
-        val connection = endpoint.openConnection() as HttpURLConnection
-        connection.connectTimeout = 15_000
-        connection.readTimeout = 30_000
-        connection.requestMethod = "GET"
-        connection.setRequestProperty("User-Agent", "StreamVault-Audio-Plugin/1.0")
-        try {
-            if (connection.responseCode !in 200..299) error("Xtream HTTP ${connection.responseCode}")
-            val body = connection.inputStream.bufferedReader().use { it.readText() }
-            val source = JSONArray(body)
-            val result = JSONArray()
-            for (i in 0 until source.length()) {
-                val item = source.optJSONObject(i) ?: continue
-                val id = item.optString("stream_id")
-                if (id.isBlank()) continue
-                val ext = item.optString("container_extension").ifBlank { "ts" }
-                val streamUrl = "$server/live/${enc(username)}/${enc(password)}/$id.$ext"
-                result.put(JSONObject()
-                    .put("id", id)
-                    .put("name", item.optString("name").ifBlank { "Audio $id" })
-                    .put("url", streamUrl)
-                    .put("logo", item.optString("stream_icon"))
-                    .put("group", item.optString("category_name")))
+        // Audio is a dedicated managed M3U subscription from the activation record.
+        // Never fall back to the video/Xtream subscription.
+        val m3uUrl = getSharedPreferences("streamvault_audio_source", MODE_PRIVATE)
+            .getString("m3u_url", null)
+            .orEmpty()
+            .trim()
+
+        if (m3uUrl.isBlank()) return cachedChannels()
+
+        return try {
+            val connection = (URL(m3uUrl).openConnection() as HttpURLConnection).apply {
+                connectTimeout = 15_000
+                readTimeout = 30_000
+                requestMethod = "GET"
+                setRequestProperty("User-Agent", "StreamVault-Audio/1.0")
             }
-            return result
-        } finally {
-            connection.disconnect()
+            try {
+                if (connection.responseCode !in 200..299) {
+                    error("M3U HTTP ${connection.responseCode}")
+                }
+                val body = connection.inputStream.bufferedReader().use { it.readText() }
+                val channels = parseM3u(body)
+                if (channels.length() == 0) {
+                    error("The managed audio M3U contains no playable channels.")
+                }
+                PluginPrefs.saveCachedChannels(this, channels.toString())
+                channels
+            } finally {
+                connection.disconnect()
+            }
+        } catch (error: Exception) {
+            cachedChannels().takeIf { it.length() > 0 } ?: throw error
         }
     }
+
+    private fun parseM3u(body: String): JSONArray {
+        val result = JSONArray()
+        var pending: JSONObject? = null
+        for (raw in body.split(Regex("\\r?\\n"))) {
+            val line = raw.trim()
+            when {
+                line.isEmpty() -> Unit
+                line.startsWith("#EXTINF:", ignoreCase = true) -> {
+                    val comma = line.indexOf(",")
+                    val metadata = if (comma >= 0) line.substring(0, comma) else line
+                    val name = line.substringAfter(",", "").trim()
+                    pending = JSONObject()
+                        .put("name", name.ifBlank { "Audio" })
+                        .put("logo", attribute(metadata, "tvg-logo"))
+                        .put("group", attribute(metadata, "group-title"))
+                }
+                line.startsWith("#") -> Unit
+                pending != null -> {
+                    pending!!.put("url", line)
+                    result.put(pending)
+                    pending = null
+                }
+            }
+        }
+        return result
+    }
+
+    private fun attribute(metadata: String, key: String): String {
+        val match = Regex(key + "\\s*=\\s*\"([^\"]*)\"", RegexOption.IGNORE_CASE).find(metadata)
+        return match?.groupValues?.getOrNull(1).orEmpty()
+    }
+
+    private fun cachedChannels(): JSONArray =
+        runCatching { JSONArray(PluginPrefs.cachedChannels(this)) }.getOrDefault(JSONArray())
 
     private fun configurationValues(): JSONObject = JSONObject()
         .put("serverUrl", PluginPrefs.server(this))
