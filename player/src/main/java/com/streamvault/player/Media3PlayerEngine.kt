@@ -201,7 +201,7 @@ class Media3PlayerEngine @Inject constructor(
             vodHttpProtocolModeProvider = { requestedVodHttpProtocolMode }
         )
     }
-    private var externalAudioPreviousMainAudioEnabled: Boolean? = null
+    private var externalAudioPreviousMainAudioVolume: Float? = null
     private var audioOnlyMode = false
     private var mediaSession: MediaSession? = null
     private var requestedAudioDecoderMode: DecoderMode = DecoderMode.AUTO
@@ -479,8 +479,8 @@ class Media3PlayerEngine @Inject constructor(
     }
 
     override fun playAudioSource(channel: AudioSourceChannel, streamInfo: StreamInfo) {
-        if (externalAudioPreviousMainAudioEnabled == null) {
-            externalAudioPreviousMainAudioEnabled = isMainAudioEnabled()
+        if (externalAudioPreviousMainAudioVolume == null) {
+            externalAudioPreviousMainAudioVolume = exoPlayer?.volume ?: 1f
         }
         // Keep Player A untouched while Player B is starting. Player B will
         // mute Player A only after it reaches STATE_READY with a real audio track.
@@ -495,26 +495,12 @@ class Media3PlayerEngine @Inject constructor(
     override fun syncAudioSourceToVideo(videoPositionMs: Long) = externalAudioController.syncToVideo(videoPositionMs)
 
     private fun disableMainAudioForExternalReady() {
-        setMainAudioEnabled(false)
-    }
-
-    private fun isMainAudioEnabled(): Boolean {
-        val player = exoPlayer ?: return true
-        return C.TRACK_TYPE_AUDIO !in player.trackSelectionParameters.disabledTrackTypes
-    }
-
-    private fun setMainAudioEnabled(enabled: Boolean) {
-        exoPlayer?.let { player ->
-            player.trackSelectionParameters = player.trackSelectionParameters
-                .buildUpon()
-                .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, !enabled)
-                .build()
-        }
+        exoPlayer?.volume = 0f
     }
 
     private fun restoreMainAudioAfterExternalFailure() {
-        externalAudioPreviousMainAudioEnabled?.let(::setMainAudioEnabled)
-        externalAudioPreviousMainAudioEnabled = null
+        externalAudioPreviousMainAudioVolume?.let { volume -> exoPlayer?.volume = volume }
+        externalAudioPreviousMainAudioVolume = null
     }
 
     override fun prepare(streamInfo: StreamInfo, autoPlay: Boolean) {
@@ -2890,9 +2876,19 @@ private class ExternalAudioController(
                                     // Audio source is independent from the video clock.
                                     // The video audio is muted only after the external source is READY.
                                     // Synchronization is intentionally manual via the Sync action.
-                                    p.playWhenReady = videoIsPlayingProvider()
-                                    onExternalAudioReady()
-                                    p.volume = 1f
+                                    try {
+                                        p.playWhenReady = videoIsPlayingProvider()
+                                        onExternalAudioReady()
+                                        p.volume = 1f
+                                    } catch (error: Exception) {
+                                        Log.e(
+                                            TAG,
+                                            "external-audio READY handoff failed without crashing main playback: " +
+                                                error::class.java.simpleName + ": " + error.message,
+                                            error
+                                        )
+                                        stopForFailure(generation)
+                                    }
                                 }
 
                                 Player.STATE_IDLE,
