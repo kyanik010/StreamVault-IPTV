@@ -1,7 +1,6 @@
 package com.streamvault.feature.playback.player
 
 import android.content.Context
-import androidx.core.content.edit
 import com.streamvault.domain.model.Channel
 import com.streamvault.domain.model.ExternalAudioSource
 import com.streamvault.domain.repository.ChannelRepository
@@ -154,7 +153,7 @@ class AudioSourceCatalogCache @Inject constructor(
     }
 
     private fun extractAttribute(metadata: String, key: String): String? {
-        val regex = Regex("""$key\\s*=\\s*"([^"]*)"""", RegexOption.IGNORE_CASE)
+        val regex = Regex("""$key\s*=\s*"([^"]*)"""", RegexOption.IGNORE_CASE)
         return regex.find(metadata)?.groupValues?.getOrNull(1)?.takeIf { it.isNotBlank() }
     }
 
