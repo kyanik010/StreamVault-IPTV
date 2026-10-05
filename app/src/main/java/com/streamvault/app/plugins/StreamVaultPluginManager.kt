@@ -142,11 +142,18 @@ class StreamVaultPluginManager @Inject constructor(
         if (!plugin.enabled) {
             return@withContext PluginActionResult(false, "Audio Source plugin is disabled")
         }
+        val audioM3uUrl = context.getSharedPreferences("streamvault_audio_source", Context.MODE_PRIVATE)
+            .getString("m3u_url", null)
+            .orEmpty()
+            .trim()
         val response = runPluginCatching {
             messengerClient.send(
                 packageName = plugin.packageName,
                 serviceClassName = plugin.serviceClassName,
-                what = StreamVaultPluginContract.MSG_GET_AUDIO_CHANNELS
+                what = StreamVaultPluginContract.MSG_GET_AUDIO_CHANNELS,
+                data = Bundle().apply {
+                    putString(StreamVaultPluginContract.KEY_URL, audioM3uUrl)
+                }
             )
         }.getOrElse { error ->
             return@withContext PluginActionResult(false, error.message ?: "Audio sync failed")
