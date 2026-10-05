@@ -261,5 +261,6 @@ class DualSourceAudioCoordinator @Inject constructor(
         const val KEY_REQUEST_ID = "request_id"
         const val KEY_SUCCESS = "success"
         const val KEY_AUDIO_CHANNELS_JSON = "audio_channels_json"
+        const val KEY_URL = "url"
     }
 }
