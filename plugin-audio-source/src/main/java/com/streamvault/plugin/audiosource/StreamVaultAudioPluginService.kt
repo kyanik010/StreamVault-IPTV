@@ -12,6 +12,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
 
 class StreamVaultAudioPluginService : Service() {
     private val handler = Handler(Looper.getMainLooper()) { message ->
