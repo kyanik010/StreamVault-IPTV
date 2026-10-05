@@ -160,10 +160,12 @@ fun ActivationGate(
                         return@onSuccess
                     }
                 }
-                config.audio?.m3uUrl?.takeIf { it.isNotBlank() }?.let { audioUrl ->
-                    context.getSharedPreferences("streamvault_audio_source", Context.MODE_PRIVATE)
-                        .edit().putString("m3u_url", audioUrl).apply()
-                }
+                context.getSharedPreferences("streamvault_audio_source", Context.MODE_PRIVATE)
+                    .edit()
+                    .apply {
+                        val audioUrl = config.audio?.m3uUrl?.trim().orEmpty()
+                        if (audioUrl.isBlank()) remove("m3u_url") else putString("m3u_url", audioUrl)
+                    }
                 activationPrefs.edit().putBoolean("last_active", true).apply()
                 showForm = false
                 state = ActivationState.ACTIVE
