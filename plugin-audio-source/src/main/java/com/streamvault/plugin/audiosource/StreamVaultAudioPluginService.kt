@@ -54,7 +54,7 @@ class StreamVaultAudioPluginService : Service() {
                     response.putString(PluginContract.KEY_MESSAGE, "Audio Source is consumed directly by the player.")
                 }
                 PluginContract.MSG_GET_AUDIO_CHANNELS -> {
-                    val channels = fetchM3uChannels()
+                    val channels = fetchM3uChannels(request.getString(PluginContract.KEY_URL).orEmpty())
                     response.putString(PluginContract.KEY_AUDIO_CHANNELS_JSON, channels.toString())
                 }
                 PluginContract.MSG_PREPARE_PLAYBACK -> response.putBoolean(PluginContract.KEY_HANDLED, false)
@@ -76,15 +76,12 @@ class StreamVaultAudioPluginService : Service() {
         runCatching { message.replyTo?.send(Message.obtain().apply { data = response }) }
     }
 
-    private fun fetchM3uChannels(): JSONArray {
+    private fun fetchM3uChannels(requestedM3uUrl: String = ""): JSONArray {
         require(PluginPrefs.enabled(this)) { "Audio Source is disabled." }
 
         // Audio is a dedicated managed M3U subscription from the activation record.
         // Never fall back to the video/Xtream subscription.
-        val m3uUrl = getSharedPreferences("streamvault_audio_source", MODE_PRIVATE)
-            .getString("m3u_url", null)
-            .orEmpty()
-            .trim()
+        val m3uUrl = requestedM3uUrl.trim()
 
         if (m3uUrl.isBlank()) return cachedChannels()
 
