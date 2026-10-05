@@ -61,11 +61,7 @@ class DualSourceAudioCoordinator @Inject constructor(
         _state.value = _state.value.copy(loading = true, error = null)
 
         val pluginChannels = loadPluginChannels()
-        val channels = if (pluginChannels.isNotEmpty()) {
-            pluginChannels
-        } else {
-            currentEngine.audioSourceChannels.value
-        }
+        val channels = pluginChannels
 
         val selected = currentEngine.selectedAudioSource.value
         val mapped = channels.mapIndexed { index, channel ->
@@ -90,7 +86,7 @@ class DualSourceAudioCoordinator @Inject constructor(
             channels = mapped,
             selectedChannelId = selectedId,
             loading = false,
-            error = if (mapped.isEmpty()) "لا توجد قنوات صوتية محملة. ثبّت إضافة StreamVault Audio Source واضبط حساب Xtream." else null,
+            error = if (mapped.isEmpty()) "لا توجد قنوات صوتية في اشتراك M3U الصوتي." else null,
             manualOffsetMs = currentEngine.audioSourceSyncMs.value.toLong(),
             syncState = if (selected != null) "AUDIO_ACTIVE" else "IDLE",
         )
@@ -243,6 +239,15 @@ class DualSourceAudioCoordinator @Inject constructor(
                     data = Bundle().apply {
                         putInt(KEY_API_VERSION, 1)
                         putString(KEY_REQUEST_ID, requestId)
+                        if (what == MSG_GET_AUDIO_CHANNELS) {
+                            putString(
+                                KEY_URL,
+                                context.getSharedPreferences("streamvault_audio_source", Context.MODE_PRIVATE)
+                                    .getString("m3u_url", null)
+                                    .orEmpty()
+                                    .trim()
+                            )
+                        }
                     }
                 })
                 withTimeoutOrNull(15_000L) { responseDeferred.await() }
