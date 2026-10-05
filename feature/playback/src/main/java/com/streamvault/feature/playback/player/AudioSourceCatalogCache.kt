@@ -3,7 +3,9 @@ package com.streamvault.feature.playback.player
 import android.content.Context
 import com.streamvault.domain.model.Channel
 import com.streamvault.domain.model.ExternalAudioSource
-import com.streamvault.domain.repository.ChannelRepository
+import com.streamvault.data.local.dao.ExternalAudioSourceDao
+import com.streamvault.data.local.entity.ExternalAudioSourceEntity
+import org.json.JSONObject
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
@@ -24,7 +26,7 @@ import okhttp3.Request
  */
 @Singleton
 class AudioSourceCatalogCache @Inject constructor(
-    private val channelRepository: ChannelRepository,
+    private val externalAudioSourceDao: ExternalAudioSourceDao,
     private val okHttpClient: OkHttpClient,
     @ApplicationContext private val context: Context,
 ) {
@@ -49,7 +51,23 @@ class AudioSourceCatalogCache @Inject constructor(
             loadManagedM3u(managedM3uUrl, providerId)
         }
 
-        val preparedByChannel = prepared.associateBy { it.channelId }
+        // Persist the synchronized Audio library in Room so it survives process/app restarts.
+        withContext(Dispatchers.IO) {
+            if (prepared.isEmpty()) {
+                externalAudioSourceDao.deleteByProvider(providerId)
+            } else {
+                externalAudioSourceDao.upsertAll(prepared.map(::toEntity))
+                externalAudioSourceDao.deleteStale(providerId, prepared.map { it.channelId })
+            }
+        }
+
+        val preparedByChannel = if (prepared.isNotEmpty()) {
+            prepared.associateBy { it.channelId }
+        } else {
+            withContext(Dispatchers.IO) {
+                externalAudioSourceDao.getByProvider(providerId).map(::fromEntity).associateBy { it.channelId }
+            }
+        }
         preparedCache[providerId] = preparedByChannel
 
         val channels = prepared
@@ -100,6 +118,44 @@ class AudioSourceCatalogCache @Inject constructor(
             preparedCache.remove(providerId)
         }
     }
+
+    private fun toEntity(source: ExternalAudioSource): ExternalAudioSourceEntity =
+        ExternalAudioSourceEntity(
+            providerId = source.providerId,
+            channelId = source.channelId,
+            streamId = source.streamId,
+            name = source.name,
+            logoUrl = source.logoUrl,
+            groupTitle = source.groupTitle,
+            sourceUrl = source.sourceUrl,
+            resolvedUrl = source.resolvedUrl,
+            headersJson = JSONObject(source.headers).toString(),
+            userAgent = source.userAgent,
+            expirationTime = source.expirationTime,
+            containerExtension = source.containerExtension,
+            preparedAt = source.preparedAt,
+        )
+
+    private fun fromEntity(entity: ExternalAudioSourceEntity): ExternalAudioSource =
+        ExternalAudioSource(
+            providerId = entity.providerId,
+            channelId = entity.channelId,
+            streamId = entity.streamId,
+            name = entity.name,
+            logoUrl = entity.logoUrl,
+            groupTitle = entity.groupTitle,
+            sourceUrl = entity.sourceUrl,
+            resolvedUrl = entity.resolvedUrl,
+            headers = runCatching {
+                JSONObject(entity.headersJson).keys().asSequence().associateWith { key ->
+                    JSONObject(entity.headersJson).getString(key)
+                }
+            }.getOrDefault(emptyMap()),
+            userAgent = entity.userAgent,
+            expirationTime = entity.expirationTime,
+            containerExtension = entity.containerExtension,
+            preparedAt = entity.preparedAt,
+        )
 
     private fun loadManagedM3u(url: String, providerId: Long): List<ExternalAudioSource> {
         return runCatching {
