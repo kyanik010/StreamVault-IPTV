@@ -1205,6 +1205,20 @@ class SyncManager @Inject constructor(
                         is CapabilityResolution.Unsupported -> throw IllegalStateException(resolution.reason)
                     }
                 }
+                // Refresh the managed External Audio library only as part of the
+                // explicit provider synchronization. The playback cache never downloads the
+                // managed M3U; it only hydrates the Room rows produced here.
+                withContext(Dispatchers.IO) {
+                    channelRepository.prepareExternalAudioLibraryFromM3u(
+                        providerId = providerId,
+                        m3uUrl = applicationContext
+                            .getSharedPreferences("streamvault_audio_source", Context.MODE_PRIVATE)
+                            .getString("m3u_url", null)
+                            ?.trim()
+                            .orEmpty()
+                    )
+                }
+
                 transactionRunner.inTransaction {
                     providerWorkflowCommitFence.assertCanCommit(providerId)
                     // A candidate configuration which produced no catalog is not committed. Do
