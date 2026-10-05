@@ -3,7 +3,7 @@ name: Android Beta Build
 on:
   push:
     branches:
-      - develop
+      - temp/build-beta-f83c4ec
   workflow_dispatch:
 
 permissions:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build-beta:
-    if: github.ref == 'refs/heads/develop'
+    if: github.ref == 'refs/heads/temp/build-beta-f83c4ec'
     runs-on: ubuntu-latest
 
     steps:
