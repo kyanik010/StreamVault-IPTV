@@ -419,6 +419,7 @@ internal class SettingsProviderActions(
                 syncCanCancel = false,
                 userMessage = when {
                     result is SyncProviderResult.Error -> "Sync failed: ${result.message}"
+                    audioSyncFailure != null -> "Sync completed with warnings: Audio sync failed: $audioSyncFailure"
                     (result as? SyncProviderResult.Success)?.isPartial == true -> "Sync completed with warnings: $warningsMessage"
                     pendingXtreamTextRefreshGeneration != null -> "Sync completed and reapplied Xtream text decoding"
                     !catalogRefreshed -> "Library already up to date"
