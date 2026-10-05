@@ -351,6 +351,8 @@ internal class SettingsProviderActions(
             }
         )
 
+        var audioSyncFailure: String? = null
+        var audioSyncMessage: String? = null
         if (result !is SyncProviderResult.Error) {
             pendingXtreamTextRefreshGeneration?.let { generation ->
                 preferencesRepository.markXtreamTextImportApplied(providerId, generation)
@@ -377,6 +379,18 @@ internal class SettingsProviderActions(
                         syncingProviderName = providerName
                     )
                 }
+            }
+
+            uiState.update { state ->
+                state.copy(
+                    syncProgress = "Syncing audio source...",
+                    syncingProviderName = providerName
+                )
+            }
+            when (val audioResult = surfaceRefreshPort.syncExternalAudio()) {
+                is Result.Success -> audioSyncMessage = "Audio source synced"
+                is Result.Error -> audioSyncFailure = audioResult.message
+                Result.Loading -> Unit
             }
 
             uiState.update { state ->
