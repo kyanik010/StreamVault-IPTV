@@ -351,6 +351,8 @@ internal class SettingsProviderActions(
             }
         )
 
+        var audioSyncFailure: String? = null
+        var audioSyncMessage: String? = null
         if (result !is SyncProviderResult.Error) {
             pendingXtreamTextRefreshGeneration?.let { generation ->
                 preferencesRepository.markXtreamTextImportApplied(providerId, generation)
@@ -381,6 +383,18 @@ internal class SettingsProviderActions(
 
             uiState.update { state ->
                 state.copy(
+                    syncProgress = "Syncing audio source...",
+                    syncingProviderName = providerName
+                )
+            }
+            when (val audioResult = surfaceRefreshPort.syncExternalAudio()) {
+                is Result.Success -> audioSyncMessage = "Audio source synced"
+                is Result.Error -> audioSyncFailure = audioResult.message
+                Result.Loading -> Unit
+            }
+
+            uiState.update { state ->
+                state.copy(
                     syncProgress = "Scheduling EPG refresh...",
                     syncingProviderName = providerName
                 )
@@ -405,7 +419,9 @@ internal class SettingsProviderActions(
                 syncCanCancel = false,
                 userMessage = when {
                     result is SyncProviderResult.Error -> "Sync failed: ${result.message}"
+                    audioSyncFailure != null -> "Sync completed with warnings: Audio sync failed: $audioSyncFailure"
                     (result as? SyncProviderResult.Success)?.isPartial == true -> "Sync completed with warnings: $warningsMessage"
+                    audioSyncMessage != null -> "Sync completed — $audioSyncMessage"
                     pendingXtreamTextRefreshGeneration != null -> "Sync completed and reapplied Xtream text decoding"
                     !catalogRefreshed -> "Library already up to date"
                     else -> "Sync completed"
