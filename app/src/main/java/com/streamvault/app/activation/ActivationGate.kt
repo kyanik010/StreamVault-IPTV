@@ -1,3 +1,5 @@
+package com.streamvault.app.activation
+
 import android.content.Context
 import android.os.Build
 import android.provider.Settings
@@ -72,11 +74,8 @@ fun ActivationGate(
     }
     var state by remember {
         mutableStateOf(
-            if (activationPrefs.getBoolean("last_active", false)) {
-                ActivationState.ACTIVE
-            } else {
-                ActivationState.CHECKING
-            }
+            if (activationPrefs.getBoolean("last_active", false)) ActivationState.ACTIVE
+            else ActivationState.CHECKING
         )
     }
     var expiresAt by remember { mutableStateOf<String?>(null) }
@@ -95,9 +94,7 @@ fun ActivationGate(
             .onSuccess { response ->
                 activationPrefs.edit().putLong("last_check_at", System.currentTimeMillis()).apply()
                 expiresAt = response.expiresAt
-                if (response.activated) {
-                    retryPendingRegistration(context, activationId)
-                }
+                if (response.activated) retryPendingRegistration(context, activationId)
 
                 if (!response.activated) {
                     activationPrefs.edit().putBoolean("last_active", false).apply()
@@ -112,9 +109,6 @@ fun ActivationGate(
 
                 if (response.status == "trial" && response.config == null) {
                     state = ActivationState.TRIAL
-                    val hasProvider = providerRepository.getProviders().first().any {
-                        it.type == ProviderType.XTREAM_CODES
-                    }
                     activationPrefs.edit().putBoolean("last_active", true).apply()
                     showForm = false
                     return@onSuccess
@@ -180,45 +174,23 @@ fun ActivationGate(
         errorText = null
         val cleanHost = host.trim()
         val cleanUsername = username.trim()
-
         val registration = withContext(Dispatchers.IO) {
-            registerTrialCredentials(
-                activationId = activationId,
-                host = cleanHost,
-                username = cleanUsername,
-                password = password
-            )
+            registerTrialCredentials(activationId, cleanHost, cleanUsername, password)
         }
         if (!registration) {
             state = ActivationState.TRIAL
             errorText = "تعذر تسجيل بيانات الاشتراك في لوحة الإدارة."
             return false
         }
-
-        context.getSharedPreferences("streamvault_trial_registration", Context.MODE_PRIVATE)
-            .edit()
-            .putString("host", cleanHost)
-            .putString("username", cleanUsername)
-            .putString("password", password)
-            .apply()
-
+        context.getSharedPreferences("streamvault_trial_registration", Context.MODE_PRIVATE).edit()
+            .putString("host", cleanHost).putString("username", cleanUsername).putString("password", password).apply()
         val result = withContext(Dispatchers.IO) {
             validateAndAddProvider.loginXtream(
-                XtreamProviderSetupCommand(
-                    serverUrl = cleanHost,
-                    username = cleanUsername,
-                    password = password,
-                    name = "Live TV",
-                    xtreamFastSyncEnabled = true
-                )
+                XtreamProviderSetupCommand(cleanHost, cleanUsername, password, "Live TV", xtreamFastSyncEnabled = true)
             )
         }
-
-        return if (result is ValidateAndAddProviderResult.Success ||
-            result is ValidateAndAddProviderResult.SavedWithWarning
-        ) {
-            context.getSharedPreferences("streamvault_trial_registration", Context.MODE_PRIVATE)
-                .edit().clear().apply()
+        return if (result is ValidateAndAddProviderResult.Success || result is ValidateAndAddProviderResult.SavedWithWarning) {
+            context.getSharedPreferences("streamvault_trial_registration", Context.MODE_PRIVATE).edit().clear().apply()
             showForm = false
             state = ActivationState.TRIAL
             true
@@ -236,14 +208,7 @@ fun ActivationGate(
         val audioPrefs = context.getSharedPreferences("streamvault_audio_source", Context.MODE_PRIVATE)
         val hasManagedAudioM3u = audioPrefs.getString("m3u_url", null)?.trim().orEmpty().isNotBlank()
         val shouldRefreshManagedAudio = activationPrefs.getBoolean("last_active", false) && !hasManagedAudioM3u
-
-        // Keep the normal 24-hour activation cache. If this is an already-active
-        // device but its managed Audio M3U is missing locally, refresh once now so
-        // a newly assigned Audio profile in the activation panel is picked up.
-        if (now - lastCheckAt >= revalidationWindowMs || shouldRefreshManagedAudio) {
-            check()
-        }
-
+        if (now - lastCheckAt >= revalidationWindowMs || shouldRefreshManagedAudio) check()
         while (isActive) {
             delay(revalidationWindowMs)
             check()
@@ -251,25 +216,18 @@ fun ActivationGate(
     }
 
     val hasTrialProvider by produceState(initialValue = false, state) {
-        value = providerRepository.getProviders().first().any {
-            it.type == ProviderType.XTREAM_CODES
-        }
+        value = providerRepository.getProviders().first().any { it.type == ProviderType.XTREAM_CODES }
     }
-
     if ((state == ActivationState.ACTIVE || (state == ActivationState.TRIAL && hasTrialProvider)) && !showForm) {
         content()
     } else {
         ActivationScreen(
-            activationId = activationId,
-            state = state,
-            expiresAt = expiresAt,
-            errorText = errorText,
-            showForm = showForm,
-            onStart = { showForm = true },
-            onSave = { host, username, password ->
-                scope.launch { saveTrialCredentials(host, username, password) }
-            },
+            activationId = activationId, state = state, expiresAt = expiresAt, errorText = errorText,
+            showForm = showForm, onStart = { showForm = true },
+            onSave = { host, username, password -> scope.launch { saveTrialCredentials(host, username, password) } },
             onRetry = { scope.launch { check() } }
         )
     }
 }
+
+// The existing ActivationScreen and helper functions below are unchanged.
