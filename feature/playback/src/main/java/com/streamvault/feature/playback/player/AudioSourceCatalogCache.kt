@@ -1,10 +1,8 @@
 package com.streamvault.feature.playback.player
 
-import android.content.Context
 import com.streamvault.domain.model.Channel
 import com.streamvault.domain.model.ExternalAudioSource
 import com.streamvault.domain.repository.ChannelRepository
-import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -18,20 +16,12 @@ import javax.inject.Singleton
 @Singleton
 class AudioSourceCatalogCache @Inject constructor(
     private val channelRepository: ChannelRepository,
-    @ApplicationContext private val context: Context,
 ) {
     private val cache = ConcurrentHashMap<Long, List<Channel>>()
     private val preparedCache = ConcurrentHashMap<Long, Map<Long, ExternalAudioSource>>()
 
     suspend fun warm(providerId: Long): List<Channel> {
         if (providerId <= 0L) return emptyList()
-
-        // Keep the activation preference dependency here so this cache remains scoped
-        // to the managed Audio source, never to the video/Xtream subscription.
-        context.getSharedPreferences(AUDIO_PREFS, Context.MODE_PRIVATE)
-            .getString(AUDIO_M3U_KEY, null)
-            ?.trim()
-            .orEmpty()
 
         // This cache is read-only. Settings -> Providers -> Sync owns M3U download,
         // parsing, and persistence; the repository is the source of truth here.
@@ -83,8 +73,4 @@ class AudioSourceCatalogCache @Inject constructor(
         }
     }
 
-    private companion object {
-        const val AUDIO_PREFS = "streamvault_audio_source"
-        const val AUDIO_M3U_KEY = "m3u_url"
-    }
 }
