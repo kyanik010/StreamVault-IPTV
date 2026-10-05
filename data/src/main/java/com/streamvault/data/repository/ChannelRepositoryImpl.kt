@@ -58,6 +58,9 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import org.json.JSONObject
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.security.MessageDigest
 import javax.inject.Singleton
 
 @Singleton
@@ -72,7 +75,8 @@ class ChannelRepositoryImpl @Inject constructor(
     private val parentalControlManager: com.streamvault.domain.manager.ParentalControlManager,
     private val xtreamStreamUrlResolver: XtreamStreamUrlResolver,
     private val providerSnapshotDao: ProviderSnapshotDao,
-    private val providerConfigurationCodec: ProviderConfigurationCodec
+    private val providerConfigurationCodec: ProviderConfigurationCodec,
+    private val okHttpClient: OkHttpClient
 ) : ChannelRepository {
     private companion object {
         const val TAG = "ChannelRepository"
@@ -374,6 +378,59 @@ class ChannelRepositoryImpl @Inject constructor(
         return prepared.size
     }
 
+    override suspend fun prepareExternalAudioLibraryFromM3u(providerId: Long, m3uUrl: String): Int {
+        if (providerId <= 0L || m3uUrl.isBlank()) {
+            if (providerId > 0L) externalAudioSourceDao.deleteByProvider(providerId)
+            return 0
+        }
+
+        val body = runCatching {
+            val request = Request.Builder().url(m3uUrl).get().build()
+            okHttpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@runCatching null
+                response.body?.string()
+            }
+        }.getOrNull() ?: return externalAudioSourceDao.countByProvider(providerId)
+
+        val sources = parseManagedAudioM3u(body, providerId)
+        if (sources.isEmpty()) {
+            externalAudioSourceDao.deleteByProvider(providerId)
+            return 0
+        }
+        externalAudioSourceDao.upsertAll(sources)
+        externalAudioSourceDao.deleteStale(providerId, sources.map { it.channelId })
+        Log.i(TAG, "Managed External Audio library prepared: provider=$providerId sources=${sources.size}")
+        return sources.size
+    }
+
+    private fun parseManagedAudioM3u(body: String, providerId: Long): List<ExternalAudioSourceEntity> {
+        val result = mutableListOf<ExternalAudioSourceEntity>()
+        var name: String? = null
+        var logo: String? = null
+        var group: String? = null
+        body.lineSequence().forEach { raw ->
+            val line = raw.trim()
+            when {
+                line.startsWith("#EXTINF", ignoreCase = true) -> {
+                    val comma = line.indexOf(',')
+                    val metadata = if (comma >= 0) line.substring(0, comma) else line
+                    name = line.substringAfter(',', "").trim().takeIf { it.isNotBlank() }
+                    logo = Regex("""tvg-logo\s*=\s*"([^"]*)"""", RegexOption.IGNORE_CASE).find(metadata)?.groupValues?.getOrNull(1)
+                    group = Regex("""group-title\s*=\s*"([^"]*)"""", RegexOption.IGNORE_CASE).find(metadata)?.groupValues?.getOrNull(1)
+                }
+                line.isNotBlank() && !line.startsWith("#") && name != null -> {
+                    val sourceUrl = line
+                    val digest = MessageDigest.getInstance("SHA-256").digest("$providerId|${name.orEmpty()}|$sourceUrl".toByteArray(Charsets.UTF_8))
+                    var channelId = 0L
+                    repeat(8) { index -> channelId = (channelId shl 8) or (digest[index].toLong() and 0xFF) }
+                    channelId = (channelId and Long.MAX_VALUE).coerceAtLeast(1L)
+                    result += ExternalAudioSourceEntity(providerId, channelId, channelId, name.orEmpty(), logo, group, sourceUrl, sourceUrl, preparedAt = System.currentTimeMillis())
+                    name = null; logo = null; group = null
+                }
+            }
+        }
+        return result.distinctBy { it.channelId }
+    }
     override suspend fun refreshExternalAudioSource(providerId: Long, channelId: Long): ExternalAudioSource? {
         val entity = channelDao.getById(channelId)?.takeIf { it.providerId == providerId } ?: return null
         if (!isExternalAudioEligible(entity) || entity.streamUrl.isBlank()) return null
