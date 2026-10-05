@@ -5,4 +5,5 @@ interface SettingsSurfaceRefreshPort {
     suspend fun refreshRecommendations()
     suspend fun refreshTvInputCatalog()
     fun enqueueTvInputCatalogRefresh()
+    suspend fun syncExternalAudio(): com.streamvault.domain.model.Result<Unit>
 }
