@@ -136,6 +136,43 @@ class StreamVaultPluginManager @Inject constructor(
         )
     }
 
+    suspend fun syncManagedAudioSource(): PluginActionResult = withContext(Dispatchers.IO) {
+        val plugin = discoverPlugins().firstOrNull { it.manifest.id == "com.streamvault.plugin.audiosource" }
+            ?: return@withContext PluginActionResult(false, "Audio Source plugin is not installed")
+        if (!plugin.enabled) {
+            return@withContext PluginActionResult(false, "Audio Source plugin is disabled")
+        }
+        val audioM3uUrl = context.getSharedPreferences("streamvault_audio_source", Context.MODE_PRIVATE)
+            .getString("m3u_url", null)
+            .orEmpty()
+            .trim()
+        val response = runPluginCatching {
+            messengerClient.send(
+                packageName = plugin.packageName,
+                serviceClassName = plugin.serviceClassName,
+                what = StreamVaultPluginContract.MSG_GET_AUDIO_CHANNELS,
+                data = Bundle().apply {
+                    putString(StreamVaultPluginContract.KEY_URL, audioM3uUrl)
+                }
+            )
+        }.getOrElse { error ->
+            return@withContext PluginActionResult(false, error.message ?: "Audio sync failed")
+        }
+        if (!response.getBoolean(StreamVaultPluginContract.KEY_SUCCESS, false)) {
+            return@withContext PluginActionResult(
+                false,
+                response.getString(StreamVaultPluginContract.KEY_MESSAGE).orEmpty().ifBlank { "Audio sync failed" }
+            )
+        }
+        val channelsJson = response.getString(StreamVaultPluginContract.KEY_AUDIO_CHANNELS_JSON).orEmpty()
+        if (channelsJson.isBlank()) {
+            PluginActionResult(true, "Audio source synced: 0 channels")
+        } else {
+            val count = runCatching { org.json.JSONArray(channelsJson).length() }.getOrDefault(0)
+            PluginActionResult(true, "Audio source synced: $count channels")
+        }
+    }
+
     suspend fun discoverPlugins(): List<InstalledStreamVaultPlugin> = withContext(Dispatchers.IO) {
         cachedDiscovery?.takeIf { System.currentTimeMillis() < discoveryExpiresAtMillis }?.let { return@withContext it }
         val resolveInfos = queryPluginServices()
