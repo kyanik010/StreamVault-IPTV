@@ -1,5 +1,6 @@
 package com.streamvault.feature.settings.presentation
 
+import android.content.Context
 import com.streamvault.feature.settings.api.SettingsSurfaceRefreshPort
 import com.streamvault.domain.model.ActiveLiveSource
 import com.streamvault.domain.model.ChannelLogoSourcePolicy
@@ -8,6 +9,7 @@ import com.streamvault.domain.model.ProviderEpgSyncMode
 import com.streamvault.domain.model.ProviderType
 import com.streamvault.domain.model.Result
 import com.streamvault.domain.model.SyncMetadata
+import com.streamvault.domain.repository.ChannelRepository
 import com.streamvault.domain.repository.CombinedM3uRepository
 import com.streamvault.domain.repository.ProviderRepository
 import com.streamvault.domain.repository.SyncMetadataRepository
@@ -32,6 +34,8 @@ internal fun shouldAutoSyncProvider(
 ): Boolean = !PersistedTimestampPolicy.isFresh(lastSyncedAt, now, staleAfterMillis)
 
 internal class SettingsProviderActions(
+    private val appContext: Context,
+    private val channelRepository: ChannelRepository,
     private val providerRepository: ProviderRepository,
     private val combinedM3uRepository: CombinedM3uRepository,
     private val preferencesRepository: SettingsPreferences,
@@ -352,6 +356,7 @@ internal class SettingsProviderActions(
         )
 
         if (result !is SyncProviderResult.Error) {
+            syncManagedAudioM3u(providerId)
             pendingXtreamTextRefreshGeneration?.let { generation ->
                 preferencesRepository.markXtreamTextImportApplied(providerId, generation)
             }
@@ -454,6 +459,7 @@ internal class SettingsProviderActions(
             }
         }
         if (result !is Result.Error) {
+            syncManagedAudioM3u(providerId)
             pendingXtreamTextRefreshGeneration?.let { generation ->
                 preferencesRepository.markXtreamTextImportApplied(providerId, generation)
             }
@@ -478,6 +484,19 @@ internal class SettingsProviderActions(
         }
     }
 
+    private suspend fun syncManagedAudioM3u(providerId: Long) {
+        val audioM3uUrl = appContext
+            .getSharedPreferences("streamvault_audio_source", Context.MODE_PRIVATE)
+            .getString("m3u_url", null)
+            ?.trim()
+            .orEmpty()
+
+        runCatching {
+            channelRepository.prepareExternalAudioLibraryFromM3u(providerId, audioM3uUrl)
+        }.onFailure { error ->
+            uiState.update { it.copy(userMessage = "Audio M3U sync failed: ${error.message ?: "unknown error"}") }
+        }
+    }
     private fun mapSyncNowProgress(message: String): String = when (message) {
         "Downloading Movies..." -> "Checking Movies..."
         "Downloading Series..." -> "Checking Series..."
