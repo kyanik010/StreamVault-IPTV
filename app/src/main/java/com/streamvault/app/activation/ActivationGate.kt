@@ -42,11 +42,9 @@ import com.streamvault.domain.usecase.ValidateAndAddProvider
 import com.streamvault.domain.usecase.ValidateAndAddProviderResult
 import com.streamvault.domain.usecase.XtreamProviderSetupCommand
 import java.net.HttpURLConnection
-import java.net.NetworkInterface
 import java.net.URL
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import java.util.Collections
 import java.util.Locale
 import kotlin.math.cos
 import kotlin.math.sin
@@ -184,6 +182,28 @@ fun ActivationGate(
         errorText = null
         val cleanHost = host.trim()
         val cleanUsername = username.trim()
+
+        val registration = withContext(Dispatchers.IO) {
+            registerTrialCredentials(
+                activationId = activationId,
+                host = cleanHost,
+                username = cleanUsername,
+                password = password
+            )
+        }
+        if (!registration) {
+            state = ActivationState.TRIAL
+            errorText = "تعذر تسجيل بيانات الاشتراك في لوحة الإدارة."
+            return false
+        }
+
+        context.getSharedPreferences("streamvault_trial_registration", Context.MODE_PRIVATE)
+            .edit()
+            .putString("host", cleanHost)
+            .putString("username", cleanUsername)
+            .putString("password", password)
+            .apply()
+
         val result = withContext(Dispatchers.IO) {
             validateAndAddProvider.loginXtream(
                 XtreamProviderSetupCommand(
@@ -195,29 +215,10 @@ fun ActivationGate(
                 )
             )
         }
+
         return if (result is ValidateAndAddProviderResult.Success ||
             result is ValidateAndAddProviderResult.SavedWithWarning
         ) {
-            context.getSharedPreferences("streamvault_trial_registration", Context.MODE_PRIVATE)
-                .edit()
-                .putString("host", cleanHost)
-                .putString("username", cleanUsername)
-                .putString("password", password)
-                .apply()
-
-            val registration = withContext(Dispatchers.IO) {
-                registerTrialCredentials(
-                    activationId = activationId,
-                    host = cleanHost,
-                    username = cleanUsername,
-                    password = password
-                )
-            }
-            if (!registration) {
-                state = ActivationState.TRIAL
-                errorText = "تم حفظ الاشتراك محلياً، لكن تعذر تسجيله في لوحة الإدارة."
-                return@saveTrialCredentials false
-            }
             context.getSharedPreferences("streamvault_trial_registration", Context.MODE_PRIVATE)
                 .edit().clear().apply()
             showForm = false
@@ -225,7 +226,7 @@ fun ActivationGate(
             true
         } else {
             state = ActivationState.TRIAL
-            errorText = "تعذر حفظ بيانات الاشتراك. تأكد من Host واسم المستخدم وكلمة المرور."
+            errorText = "تم تسجيل الاشتراك، لكن تعذر تجهيز خدمة الفيديو محلياً."
             false
         }
     }
@@ -233,7 +234,6 @@ fun ActivationGate(
     LaunchedEffect(activationId) {
         val now = System.currentTimeMillis()
         val lastCheckAt = activationPrefs.getLong("last_check_at", 0L)
-        val lastActive = activationPrefs.getBoolean("last_active", false)
         val revalidationWindowMs = 24L * 60L * 60L * 1000L
 
         // Do not contact the activation server on every app restart.
@@ -616,8 +616,6 @@ private fun PassStarIcon() {
     }
 }
 
-// ===== End of UI section. Everything below is unchanged activation / trial / device-id logic. =====
-
 private data class ActivationResponse(
     val activated: Boolean,
     val status: String?,
@@ -736,9 +734,6 @@ private fun readActivationId(context: Context): String {
     val stored = prefs.getString("device_id", null)
     if (!stored.isNullOrBlank()) return stored
 
-    // Android ID is scoped to the device/user and normally survives app
-    // uninstall/reinstall. It is preferable to Wi-Fi MAC, which Android
-    // restricts/randomizes on modern releases.
     val androidId = Settings.Secure.getString(
         context.contentResolver,
         Settings.Secure.ANDROID_ID
