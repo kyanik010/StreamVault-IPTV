@@ -22,5 +22,12 @@ object PluginPrefs {
         prefs(context).edit().putBoolean(KEY_ENABLED, value).apply()
     }
 
+    fun cachedChannels(context: Context): String =
+        prefs(context).getString("cached_channels_json", "").orEmpty()
+
+    fun saveCachedChannels(context: Context, value: String) {
+        prefs(context).edit().putString("cached_channels_json", value).apply()
+    }
+
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 }
