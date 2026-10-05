@@ -32,9 +32,11 @@ class AudioSourceCatalogCache @Inject constructor(
             ?.trim()
             .orEmpty()
 
-        // The repository is the persistent source of truth. It synchronizes the
-        // managed M3U when available and restores the existing Room library on restart.
-        channelRepository.prepareExternalAudioLibraryFromM3u(providerId, managedM3uUrl)
+        // Sync owns network refreshes. Warm/load only hydrates the already-persisted
+        // managed Audio library from Room after process recreation.
+        if (managedM3uUrl.isBlank()) {
+            channelRepository.prepareExternalAudioLibraryFromM3u(providerId, "")
+        }
 
         val prepared = channelRepository.getExternalAudioSources(providerId)
         val preparedByChannel = prepared.associateBy { it.channelId }
