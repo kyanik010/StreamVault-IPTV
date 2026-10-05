@@ -64,7 +64,8 @@ internal class SettingsSyncActions(
             when (selection) {
                 ProviderSyncSelection.SYNC_NOW -> runSectionSync(
                     providerId = providerId,
-                    selections = syncNowSelections(providerId)
+                    selections = syncNowSelections(providerId),
+                    syncAudio = true
                 )
                 ProviderSyncSelection.REBUILD_INDEX -> Unit
                 else -> runSectionSync(providerId, listOf(selection))
@@ -173,7 +174,8 @@ internal class SettingsSyncActions(
 
     private suspend fun runSectionSync(
         providerId: Long,
-        selections: List<ProviderSyncSelection>
+        selections: List<ProviderSyncSelection>,
+        syncAudio: Boolean = false
     ) {
         val provider = uiState.value.providers.firstOrNull { it.id == providerId }
         val providerName = provider?.name
@@ -235,6 +237,20 @@ internal class SettingsSyncActions(
                 surfaceRefreshPort.enqueueTvInputCatalogRefresh()
             }
 
+            var audioSyncFailure: String? = null
+            if (syncAudio) {
+                uiState.update { state ->
+                    state.copy(
+                        syncProgress = "Syncing audio source...",
+                        syncingProviderName = providerName
+                    )
+                }
+                when (val audioResult = surfaceRefreshPort.syncExternalAudio()) {
+                    is Result.Error -> audioSyncFailure = audioResult.message
+                    else -> Unit
+                }
+            }
+
             uiState.update { state ->
                 state.copy(
                     isSyncing = false,
@@ -244,6 +260,7 @@ internal class SettingsSyncActions(
                     syncSectionLabel = null,
                     syncCanCancel = false,
                     userMessage = when {
+                        audioSyncFailure != null -> "Sync completed with warnings: Audio sync failed: $audioSyncFailure"
                         failures.isEmpty() -> appContext.getString(
                             R.string.settings_sync_sections_success,
                             completed.joinToString()
