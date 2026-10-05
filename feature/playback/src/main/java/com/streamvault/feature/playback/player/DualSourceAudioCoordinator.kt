@@ -243,6 +243,14 @@ class DualSourceAudioCoordinator @Inject constructor(
                     data = Bundle().apply {
                         putInt(KEY_API_VERSION, 1)
                         putString(KEY_REQUEST_ID, requestId)
+                        if (what == MSG_GET_AUDIO_CHANNELS) {
+                            putString(
+                                KEY_URL,
+                                context.getSharedPreferences("streamvault_audio_source", Context.MODE_PRIVATE)
+                                    .getString("m3u_url", null)
+                                    .orEmpty()
+                            )
+                        }
                     }
                 })
                 withTimeoutOrNull(15_000L) { responseDeferred.await() }
@@ -261,5 +269,6 @@ class DualSourceAudioCoordinator @Inject constructor(
         const val KEY_REQUEST_ID = "request_id"
         const val KEY_SUCCESS = "success"
         const val KEY_AUDIO_CHANNELS_JSON = "audio_channels_json"
+        const val KEY_URL = "url"
     }
 }
