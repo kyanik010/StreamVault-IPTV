@@ -1,5 +1,6 @@
 package com.streamvault.feature.settings.presentation
 
+import android.content.Context
 import com.streamvault.feature.settings.api.SettingsSurfaceRefreshPort
 import com.streamvault.domain.model.ActiveLiveSource
 import com.streamvault.domain.model.ChannelLogoSourcePolicy
@@ -8,6 +9,7 @@ import com.streamvault.domain.model.ProviderEpgSyncMode
 import com.streamvault.domain.model.ProviderType
 import com.streamvault.domain.model.Result
 import com.streamvault.domain.model.SyncMetadata
+import com.streamvault.domain.repository.ChannelRepository
 import com.streamvault.domain.repository.CombinedM3uRepository
 import com.streamvault.domain.repository.ProviderRepository
 import com.streamvault.domain.repository.SyncMetadataRepository
@@ -32,7 +34,9 @@ internal fun shouldAutoSyncProvider(
 ): Boolean = !PersistedTimestampPolicy.isFresh(lastSyncedAt, now, staleAfterMillis)
 
 internal class SettingsProviderActions(
+    private val appContext: Context,
     private val providerRepository: ProviderRepository,
+    private val channelRepository: ChannelRepository,
     private val combinedM3uRepository: CombinedM3uRepository,
     private val preferencesRepository: SettingsPreferences,
     private val syncProvider: SyncProvider,
@@ -355,6 +359,22 @@ internal class SettingsProviderActions(
             pendingXtreamTextRefreshGeneration?.let { generation ->
                 preferencesRepository.markXtreamTextImportApplied(providerId, generation)
             }
+
+            // External Audio is a separate managed M3U catalog. Never derive it from
+            // the active video/Xtream provider. An empty managed URL clears the
+            // persisted audio library instead of falling back to video channels.
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                val audioM3uUrl = appContext
+                    .getSharedPreferences("streamvault_audio_source", Context.MODE_PRIVATE)
+                    .getString("m3u_url", null)
+                    ?.trim()
+                    .orEmpty()
+                channelRepository.prepareExternalAudioLibraryFromM3u(
+                    providerId = providerId,
+                    m3uUrl = audioM3uUrl
+                )
+            }
+
             val afterMetadata = syncMetadataRepository.getMetadata(providerId) ?: beforeMetadata
             val liveRefreshed = afterMetadata.lastLiveSync > beforeMetadata.lastLiveSync ||
                 afterMetadata.liveCount != beforeMetadata.liveCount

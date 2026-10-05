@@ -154,7 +154,9 @@ class SettingsViewModel @Inject constructor(
         uiState = _uiState
     )
     private val providerActions = SettingsProviderActions(
+        appContext = application,
         providerRepository = providerRepository,
+        channelRepository = channelRepository,
         combinedM3uRepository = combinedM3uRepository,
         preferencesRepository = preferencesRepository,
         syncProvider = syncProvider,
