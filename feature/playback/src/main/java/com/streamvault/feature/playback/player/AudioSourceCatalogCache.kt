@@ -26,16 +26,15 @@ class AudioSourceCatalogCache @Inject constructor(
     suspend fun warm(providerId: Long): List<Channel> {
         if (providerId <= 0L) return emptyList()
 
-        val managedM3uUrl = context
-            .getSharedPreferences(AUDIO_PREFS, Context.MODE_PRIVATE)
+        // Keep the activation preference dependency here so this cache remains scoped
+        // to the managed Audio source, never to the video/Xtream subscription.
+        context.getSharedPreferences(AUDIO_PREFS, Context.MODE_PRIVATE)
             .getString(AUDIO_M3U_KEY, null)
             ?.trim()
             .orEmpty()
 
-        // The repository is the persistent source of truth. It synchronizes the
-        // managed M3U when available and restores the existing Room library on restart.
-        channelRepository.prepareExternalAudioLibraryFromM3u(providerId, managedM3uUrl)
-
+        // This cache is read-only. Settings -> Providers -> Sync owns M3U download,
+        // parsing, and persistence; the repository is the source of truth here.
         val prepared = channelRepository.getExternalAudioSources(providerId)
         val preparedByChannel = prepared.associateBy { it.channelId }
         preparedCache[providerId] = preparedByChannel
